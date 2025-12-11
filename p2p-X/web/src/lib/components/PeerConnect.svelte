@@ -44,12 +44,8 @@
                 <label
                     for="agentAddress"
                     class="block text-green-500/70 text-xs mb-2 font-mono tracking-widest"
-<<<<<<< HEAD
-                    >Target Agent Coordinates (Multiaddr)</label
-=======
-                    >TARGET AGENT COORDINATES (MULTIADDR)</label
->>>>>>> 641250e (initial-setup)
-                >
+                    >
+                    Target Agent Coordinates (Multiaddr)</label>
                 <textarea
                     bind:value={agentAddress}
                     placeholder="/ip4/127.0.0.1/tcp/50847/ws/p2p/..."
@@ -85,10 +81,6 @@
     </div>
 
     <p class="text-[10px] text-green-500/30 text-center mt-6 font-mono">
-<<<<<<< HEAD
         SECURE PROTOCOL V1.0 // LLMesh
-=======
-        SECURE PROTOCOL V1.0 // P2P MESH
->>>>>>> 641250e (initial-setup)
     </p>
 </div>

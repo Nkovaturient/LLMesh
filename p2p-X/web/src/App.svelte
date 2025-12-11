@@ -60,11 +60,7 @@
         <h1
           class="text-2xl font-bold uppercase tracking-widest text-green-500 drop-shadow-md"
         >
-<<<<<<< HEAD
           Mesh Arena
-=======
-          Omnitrix Net
->>>>>>> 641250e (initial-setup)
         </h1>
         <div
           class="text-xs bg-green-900/30 px-3 py-1 rounded-full border border-green-500/20 text-green-300 font-mono"

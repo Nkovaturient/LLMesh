@@ -50,11 +50,7 @@
             <h2
                 class="text-xl font-bold text-green-400 tracking-wider uppercase glow-text"
             >
-<<<<<<< HEAD
                 Forge of P2PCreation
-=======
-                Forge of Creation
->>>>>>> 641250e (initial-setup)
             </h2>
             <div
                 class="text-[10px] text-green-300/50 font-mono tracking-widest"

@@ -77,10 +77,9 @@ Open `http://localhost:5173`.
 
 ### 5. Gratitude to Libp2p-verse.
 
--
--
--
--
+- https://libp2p.io
+- https://github.com/libp2p/universal-connectivity-workshop
+- https://github.com/libp2p/js-libp2p
 
 ---
 
