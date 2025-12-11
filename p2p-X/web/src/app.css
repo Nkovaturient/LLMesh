@@ -1,0 +1,10 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  background: #000;
+  margin: 0;
+  overflow: hidden;
+  /* Prevent body scroll, handle in containers */
+}
