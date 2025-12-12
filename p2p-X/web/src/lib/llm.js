@@ -1,6 +1,6 @@
-const BASE_URL = import.meta.env.VITE_LLM_BASE_URL || 'http://127.0.0.1:11434';
-const OPENAI_URL = import.meta.env.VITE_OPENAI_BASE_URL || 'https://api.openai.com';
-const API_KEY = import.meta.env.VITE_LLM_API_KEY || '';
+const BASE_URL = import.meta.env.VITE_LLM_BASE_URL || 'http://127.0.0.1:11434/api/chat';
+const OPENAI_URL = import.meta.env.VITE_OPENAI_BASE_URL || 'https://api.openai.com/v1/chat/completions';
+const API_KEY = import.meta.env.VITE_OPENAI_API_KEY || '';
 const MODEL = import.meta.env.VITE_LLM_MODEL || 'llama3.2';
 
 const SYSTEM_PROMPT = `You are Alien X, a Celestial Sapiens dwelling in the Forge of Creation (the libp2p universal connectivity mesh).
@@ -17,54 +17,47 @@ Personality:
 
 Context:
 - You are chatting with a peer in a browser-based libp2p node.
-- The network is a live GossipSub mesh.
-
-Initiate conversation by acknowledging their presence in the mesh.`
+- The network is a live GossipSub mesh.`
 
 export function isLLMEnabled() {
   return true
 }
 
 async function callEndpoint(baseUrl, apiKey, model, messages, isOllama) {
-    const url = isOllama
-      ? `${baseUrl.replace(/\/$/, '')}/api/chat`
-      : `${baseUrl.replace(/\/$/, '')}/v1/chat/completions`
 
-    console.log(`[LLM] Calling ${url} (Ollama: ${isOllama})`)
+  const headers = { 'Content-Type': 'application/json' }
+  if (!isOllama && apiKey) {
+    headers.Authorization = `Bearer ${apiKey}`
+  }
 
-    const headers = { 'Content-Type': 'application/json' }
-    if (!isOllama && apiKey) {
-      headers.Authorization = `Bearer ${apiKey}`
+  const body = isOllama
+    ? {
+      model,
+      stream: false,
+      messages
+    }
+    : {
+      model: model === 'llama3.2' ? 'gpt-3.5-turbo' : model, // Fallback model for OpenAI if llama is set
+      messages,
+      temperature: 0.75,
+      max_tokens: 180
     }
 
-    const body = isOllama
-      ? {
-          model,
-          stream: false,
-          messages
-        }
-      : {
-          model: model === 'llama3.2' ? 'gpt-3.5-turbo' : model, // Fallback model for OpenAI if llama is set
-          messages,
-          temperature: 0.75,
-          max_tokens: 180
-        }
+  const response = await fetch(baseUrl, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify(body)
+  })
 
-    const response = await fetch(url, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify(body)
-    })
+  if (!response.ok) {
+    const errText = await response.text().catch(() => response.statusText);
+    throw new Error(`${response.status} ${errText}`);
+  }
 
-    if (!response.ok) {
-        const errText = await response.text().catch(() => response.statusText);
-        throw new Error(`${response.status} ${errText}`);
-    }
-    
-    const data = await response.json()
-    return isOllama 
-      ? data?.message?.content?.trim() 
-      : data?.choices?.[0]?.message?.content?.trim()
+  const data = await response.json()
+  return isOllama
+    ? data?.message?.content?.trim()
+    : data?.choices?.[0]?.message?.content?.trim()
 }
 
 export async function fetchLLMReply(userMessage, peerId = '') {
@@ -79,10 +72,14 @@ export async function fetchLLMReply(userMessage, peerId = '') {
   } catch (err) {
     console.log('[LLM] Local Ollama failed, trying OpenAI fallback...', err.message)
   }
-
-  // Fallback to OpenAI
+  // // Debug: Log env variable status
+  // const envApiKey = import.meta.env.VITE_OPENAI_API_KEY;
+  // console.log('[LLM] Env check - VITE_OPENAI_API_KEY exists:', !!envApiKey);
+  // console.log('[OPENAI] Env check - VITE_OPENAI_API_KEY length:', envApiKey?.length || 0);
+  // console.log('[LLM] API_KEY variable:', API_KEY ? `${API_KEY.substring(0, 10)}...` : 'empty');
   if (API_KEY) {
     try {
+      console.log('[LLM] Calling OpenAI fallback...', API_KEY);
       // Use gpt-4o-mini or gpt-3.5-turbo as fallback models if llama is requested
       // or just use whatever is in VITE_LLM_MODEL if it's a valid OpenAI model
       const fallbackModel = (MODEL.includes('llama')) ? 'gpt-3.5-turbo' : MODEL;
@@ -91,11 +88,11 @@ export async function fetchLLMReply(userMessage, peerId = '') {
       console.error('[LLM] OpenAI fallback failed:', err.message)
     }
   } else {
-     if (API_KEY === '') {
-        console.warn('[LLM] VITE_LLM_API_KEY is empty. Check your .env file or environment variables.')
-     } else {
-        console.warn('[LLM] No OpenAI API key provided for fallback. Set VITE_LLM_API_KEY.')
-     }
+    if (API_KEY === '') {
+      console.warn('[LLM] VITE_LLM_API_KEY is empty. Check your .env file or environment variables.')
+    } else {
+      console.warn('[LLM] No OpenAI API key provided for fallback. Set VITE_LLM_API_KEY.')
+    }
   }
 
   return null

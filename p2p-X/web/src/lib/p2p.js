@@ -1,5 +1,7 @@
 import { createLibp2p } from 'libp2p'
 import { webSockets } from '@libp2p/websockets'
+import { webRTC, webRTCDirect } from '@libp2p/webrtc'
+import { circuitRelayTransport } from '@libp2p/circuit-relay-v2'
 import { noise } from '@chainsafe/libp2p-noise'
 import { yamux } from '@chainsafe/libp2p-yamux'
 import { gossipsub } from '@libp2p/gossipsub'
@@ -42,11 +44,22 @@ function setupNodeEvents(currentNode) {
 export async function initP2P(onProgress) {
   if (node) return node
 
-  addLog('Spawning browser libp2p node (ws + gossipsub)...')
+  const isSecure = window.location.protocol === 'https:'
+  addLog(`Spawning browser libp2p node (${isSecure ? 'webrtc + ' : ''}ws + circuit-relay + gossipsub)...`)
   onProgress?.('Activating node...')
 
+  const transports = []
+  if (isSecure) {
+    // On HTTPS, prefer WebRTC which works natively
+    transports.push(webRTC(), webRTCDirect())
+  }
+  // Always include WebSockets (will use WSS on HTTPS if available)
+  transports.push(webSockets())
+  // Circuit relay transport - allows connecting through relay nodes (supports WSS)
+  transports.push(circuitRelayTransport())
+
   node = await createLibp2p({
-    transports: [webSockets()],
+    transports,
     connectionEncrypters: [noise()],
     streamMuxers: [yamux()],
     connectionGater: {
@@ -102,6 +115,60 @@ async function emitAgentGreeting() {
   pushInboundMessage('Alien X', reply)
 }
 
+function convertMultiaddrForSecureContext(addrStr) {
+  const isSecure = window.location.protocol === 'https:'
+  if (!isSecure) return { addr: addrStr, method: 'direct' }
+
+  try {
+    const ma = multiaddr(addrStr)
+    const parts = ma.toString().split('/')
+    
+    // Check if it's already a circuit relay address with WSS
+    if (parts.includes('p2p-circuit')) {
+      // Circuit relay addresses are already secure if relay supports WSS
+      // Format: /ip4/relay-ip/tcp/port/wss/p2p/relay-peer-id/p2p-circuit/p2p/target-peer-id
+      const wssIndex = parts.indexOf('wss')
+      if (wssIndex !== -1) {
+        return { addr: addrStr, method: 'circuit-relay-wss' }
+      }
+      // If circuit relay but no wss, try to convert
+      const wsIndex = parts.indexOf('ws')
+      if (wsIndex !== -1) {
+        const convertedParts = [...parts]
+        convertedParts[wsIndex] = 'wss'
+        return { addr: convertedParts.join('/'), method: 'circuit-relay-wss-converted' }
+      }
+      return { addr: addrStr, method: 'circuit-relay' }
+    }
+    
+    // Check if it's already wss://
+    if (parts.includes('wss')) {
+      return { addr: addrStr, method: 'wss' }
+    }
+    
+    // Check if it's a ws:// address (insecure)
+    if (parts.includes('ws') && !parts.includes('wss')) {
+      // Try to convert to wss first (most reliable)
+      const wsIndex = parts.indexOf('ws')
+      if (wsIndex !== -1) {
+        const wssParts = [...parts]
+        wssParts[wsIndex] = 'wss'
+        return { addr: wssParts.join('/'), method: 'wss-converted' }
+      }
+    }
+    
+    // If it's a webrtc address, return as-is
+    if (parts.includes('webrtc')) {
+      return { addr: addrStr, method: 'webrtc' }
+    }
+    
+    return { addr: addrStr, method: 'direct' }
+  } catch (err) {
+    addLog(`Multiaddr conversion warning: ${err.message}`)
+    return { addr: addrStr, method: 'direct' }
+  }
+}
+
 export async function connectToAgent(agentMultiaddrStr = DEFAULT_AGENT) {
   await initP2P()
 
@@ -114,9 +181,47 @@ export async function connectToAgent(agentMultiaddrStr = DEFAULT_AGENT) {
 
   try {
     connectionStatus.set('connecting')
-    addLog(`Dialing Agent at ${target}`)
-    const ma = multiaddr(target)
-    await node.dial(ma)
+    
+    // Convert multiaddr for secure contexts
+    const { addr: convertedAddr, method } = convertMultiaddrForSecureContext(target)
+    if (convertedAddr !== target) {
+      addLog(`Converted multiaddr for secure context (${method}): ${target} -> ${convertedAddr}`)
+    }
+    
+    addLog(`Dialing Agent at ${convertedAddr}`)
+    let ma = multiaddr(convertedAddr)
+    
+    // Try dialing with the converted address
+    let lastError = null
+    try {
+      await node.dial(ma)
+    } catch (dialError) {
+      lastError = dialError
+      
+      // If WSS conversion failed and we're on HTTPS, provide helpful error
+      if (window.location.protocol === 'https:' && (method === 'wss-converted' || method === 'circuit-relay-wss-converted')) {
+        addLog(`WSS connection failed. The agent may not support WSS.`)
+        addLog(`Solutions:`)
+        addLog(`1. Expose agent via WSS (use reverse proxy/tunnel like ngrok, Cloudflare Tunnel)`)
+        addLog(`2. Use a circuit relay node that supports WSS`)
+        addLog(`3. Connect through circuit relay: /ip4/relay-ip/tcp/port/wss/p2p/relay-id/p2p-circuit/p2p/target-id`)
+        addLog(`4. Run the app on HTTP (localhost) for development`)
+        
+        // Try original address as last resort (will fail but gives clearer error)
+        try {
+          addLog(`Attempting original address (will likely fail on HTTPS)...`)
+          ma = multiaddr(target)
+          await node.dial(ma)
+        } catch (originalError) {
+          throw new Error(
+            `Cannot connect to insecure WebSocket (ws://) from HTTPS page. ` +
+            `Please use WSS, circuit relay with WSS, or a tunnel service. Original error: ${dialError.message}`
+          )
+        }
+      } else {
+        throw dialError
+      }
+    }
 
     await waitForMesh()
     const peers = chatRoom.getConnectedPeers()
@@ -152,7 +257,16 @@ export async function connectToAgent(agentMultiaddrStr = DEFAULT_AGENT) {
     agentConnected.set(false)
     addLog(`Connection failed: ${err.message}`)
     console.error(err)
-    alert(`Failed to connect: ${err.message}`)
+    
+    // Provide user-friendly error message
+    let userMessage = err.message
+    if (err.message.includes('insecure WebSocket') || err.message.includes('Mixed Content')) {
+      userMessage = `Cannot connect: The agent address uses insecure WebSocket (ws://). ` +
+        `Since this app runs on HTTPS, you need to use WSS or a tunnel service. ` +
+        `See DEPLOYMENT.md for setup instructions.`
+    }
+    
+    alert(`Connection Failed\n\n${userMessage}`)
   }
 }
 
