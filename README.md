@@ -51,7 +51,7 @@ https://github.com/user-attachments/assets/bff792b4-ea03-4841-b8c6-64d1b0960a78
 
 ## Quick Start 🚀
 
-### 1. Start the Agent (Terminal)
+### 1. Start the Agent (Terminal-RECOMMENDED)
 - This is your gateway node. It runs the mesh and the LLM hook.
 ```bash
 cd p2p-X/web/app
@@ -63,13 +63,18 @@ node index.js
 
 > Note the ws:// address and port number, e.g., `/ip4/127.0.0.1/tcp/57704/ws/p2p/...`
 
+### *Tip 💡:*
+```
+local running: use `ws` supported multiaddr to connect /ip4/127.0.0.1/tcp/56989/ws/p2p..
+production url: use `webrtc-direct` addr /ip4/127.0.0.1/udp/56987/webrtc-direct/certhash/../p2p/..
+```
+
 ### 2. Start the AI (Optional but Cool)
-For Alien X to talk back, run Ollama locally:
 ```bash
 ollama serve
 # Ensure you have llama3.2 pulled: ollama pull llama3.2
 ```
-*(If skipped, chat still works P2P, but Alien X sleeps)*
+*(If skipped, chat still works P2P via terminal mode, but Alien X sleeps)*
 
 ### 2.1. Expose Ollama via ngrok (For Production/Vercel)
 
@@ -111,7 +116,7 @@ ollama serve
    - Look for: `Forwarding  https://xyz789.ngrok.io -> http://localhost:11434`
    - Copy the `https://xyz789.ngrok.io` part
 
-4. **Set in Vercel Environment Variables:**
+<!-- 4. **Set in Vercel Environment Variables:**
    - Go to Vercel Dashboard → Your Project → Settings → Environment Variables
    - Add: `OLLAMA_BASE_URL` = `https://xyz789.ngrok.io`
    - Redeploy your app
@@ -120,7 +125,7 @@ ollama serve
    - The Vercel proxy (`/api/ollama-proxy.js`) reads `OLLAMA_BASE_URL` and forwards requests to it
    - Since it's a serverless function, it can access the ngrok URL (which tunnels to your local Ollama)
 
-**Note:** For local development (`localhost:5173`), Ollama works directly without ngrok. ngrok is only needed for production deployments on Vercel.
+**Note:** For local development (`localhost:5173`), Ollama works directly without ngrok. ngrok is only needed for production deployments on Vercel. -->
 
 ### 3. Launch the UI (Browser)
 ```bash

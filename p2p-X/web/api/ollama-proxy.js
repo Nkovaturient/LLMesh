@@ -30,10 +30,14 @@ export default async function handler(req, res) {
     console.log(`[Ollama Proxy] Forwarding to: ${endpoint}`)
 
     // Forward the request to Ollama
+    // ngrok free tier may block programmatic requests - add browser-like headers
     const response = await fetch(endpoint, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        'User-Agent': 'Mozilla/5.0 (compatible; Ollama-Proxy/1.0)',
+        'Accept': 'application/json',
+        'ngrok-skip-browser-warning': 'true',
       },
       body: JSON.stringify(req.body),
     })
@@ -41,6 +45,22 @@ export default async function handler(req, res) {
     if (!response.ok) {
       const errorText = await response.text().catch(() => response.statusText)
       console.error(`[Ollama Proxy] Error ${response.status}: ${errorText}`)
+      
+      // Check if it's a ngrok 403 - provide helpful error message
+      if (response.status === 403 && endpoint.includes('ngrok')) {
+        console.error('[Ollama Proxy] ngrok 403 detected - free tier may block programmatic requests')
+        // Set CORS headers
+        res.setHeader('Access-Control-Allow-Origin', '*')
+        res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS')
+        res.setHeader('Access-Control-Allow-Headers', 'Content-Type')
+        
+        return res.status(403).json({ 
+          error: 'ngrok 403 Forbidden',
+          message: 'ngrok free tier may block programmatic requests. Try: 1) Visit the ngrok URL in a browser first to accept warning, 2) Use ngrok paid tier, or 3) Use a different tunnel service like Cloudflare Tunnel.',
+          hint: 'You can also set OLLAMA_BASE_URL to a remote Ollama server instead of using ngrok',
+          status: 403
+        })
+      }
       
       // Set CORS headers
       res.setHeader('Access-Control-Allow-Origin', '*')
