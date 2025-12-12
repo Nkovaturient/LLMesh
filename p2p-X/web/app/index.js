@@ -29,7 +29,6 @@ async function createUniversalConnectivityNode() {
       listen: [
         '/ip4/0.0.0.0/tcp/0',
         '/ip4/0.0.0.0/tcp/0/ws',
-        '/ip4/0.0.0.0/tcp/0/wss',
         '/ip4/0.0.0.0/udp/0/webrtc',
         '/ip4/0.0.0.0/udp/0/webrtc-direct',
       ]

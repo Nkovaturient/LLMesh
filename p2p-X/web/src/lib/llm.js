@@ -1,4 +1,11 @@
-const BASE_URL = import.meta.env.VITE_LLM_BASE_URL || 'http://127.0.0.1:11434/api/chat';
+const isProduction = import.meta.env.PROD || window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1'
+
+// Use proxy endpoint in production to avoid CORS issues, direct URL in development
+const OLLAMA_BASE_URL = import.meta.env.VITE_LLM_BASE_URL || 'http://127.0.0.1:11434'
+const BASE_URL = isProduction 
+  ? '/api/ollama-proxy'  // Use Vercel serverless function proxy
+  : `${OLLAMA_BASE_URL}`  // Direct connection in development
+
 const OPENAI_URL = import.meta.env.VITE_OPENAI_BASE_URL || 'https://api.openai.com/v1/chat/completions';
 const API_KEY = import.meta.env.VITE_OPENAI_API_KEY || '';
 const MODEL = import.meta.env.VITE_LLM_MODEL || 'llama3.2';
@@ -72,16 +79,8 @@ export async function fetchLLMReply(userMessage, peerId = '') {
   } catch (err) {
     console.log('[LLM] Local Ollama failed, trying OpenAI fallback...', err.message)
   }
-  // // Debug: Log env variable status
-  // const envApiKey = import.meta.env.VITE_OPENAI_API_KEY;
-  // console.log('[LLM] Env check - VITE_OPENAI_API_KEY exists:', !!envApiKey);
-  // console.log('[OPENAI] Env check - VITE_OPENAI_API_KEY length:', envApiKey?.length || 0);
-  // console.log('[LLM] API_KEY variable:', API_KEY ? `${API_KEY.substring(0, 10)}...` : 'empty');
   if (API_KEY) {
     try {
-      console.log('[LLM] Calling OpenAI fallback...', API_KEY);
-      // Use gpt-4o-mini or gpt-3.5-turbo as fallback models if llama is requested
-      // or just use whatever is in VITE_LLM_MODEL if it's a valid OpenAI model
       const fallbackModel = (MODEL.includes('llama')) ? 'gpt-3.5-turbo' : MODEL;
       return await callEndpoint(OPENAI_URL, API_KEY, fallbackModel, messages, false)
     } catch (err) {
