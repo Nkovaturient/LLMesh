@@ -12,7 +12,7 @@
 ---
 
 ## Why this exists
-<img width="1307" height="703" alt="Screenshot 2025-12-12 at 1 55 03 AM" src="https://github.com/user-attachments/assets/0c1edff4-9820-4863-b9b1-2a4bf6d71aab" />
+<!-- <img width="1307" height="703" alt="Screenshot 2025-12-12 at 1 55 03 AM" src="https://github.com/user-attachments/assets/0c1edff4-9820-4863-b9b1-2a4bf6d71aab" /> -->
 
 To explore and tinker around the idea that P2P doesn't have to be just limited to boring terminal logs. By combining **js-libp2p: universal-connectivity** with a local **LLM Agent**, I tried to create a "living" mesh where your first peer is a cosmic entity(llm-persona) that helps you flow. No central servers, just you, your peers, and the Forge of Creation.
 
@@ -43,13 +43,13 @@ graph LR
 4. **Mesh**: Gossipsub mesh forms; peers sync.
 5. **Chat**: Messages flow over the mesh; Alien X replies via the Agent logic.
 
-
-https://github.com/user-attachments/assets/bff792b4-ea03-4841-b8c6-64d1b0960a78
-
+<img width="1686" height="976" alt="Screenshot 2025-12-13 at 1 57 44 AM" src="https://github.com/user-attachments/assets/2ecbb362-4a0a-407c-95b0-5b37a6b1f96d" />
 
 ---
 
 ## Quick Start 🚀
+
+https://github.com/user-attachments/assets/bff792b4-ea03-4841-b8c6-64d1b0960a78
 
 ### 1. Start the Agent (Terminal-RECOMMENDED)
 - This is your gateway node. It runs the mesh and the LLM hook.
@@ -136,11 +136,11 @@ npm run dev
 Open `http://localhost:5173`.
 
 ### 4. Connect & Flow
-1. Click **"LET'S FLOW"** on the landing page.
+1. Click **"LET'S FLOW"** on the landing page. [Run `ollama serve` if you havent yet started it]
 2. In the **"Target Agent Coordinates"** box, paste the **WS** address from Step 1.
    - ✅ Correct: `/ip4/127.0.0.1/tcp/xxxxx/ws/p2p/...`
    - ❌ Wrong: `/tcp/` only or `/tls/ws`.
-3. Wait for **"MESH SYNCED"** status.
+3. Wait for **"MESH SYNCED"** status. 
 4. Alien X will greet you. Chat away! 🛸
 
 
@@ -153,4 +153,4 @@ Open `http://localhost:5173`.
 
 ---
 
-*Built with Svelte, libp2p, and Cosmic Energy.*
+*Built with Svelte, Libp2p, and Cosmic Energy imbibed from Universal Connectivity Workshop.* ❤️‍🔥🚀
