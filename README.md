@@ -153,4 +153,94 @@ Open `http://localhost:5173`.
 
 ---
 
+## Roadmap 🗺️
+
+### Phase 1: Connectivity & Robustness (Foundation)
+
+**Connectivity Enhancements:**
+- ✅ WebSocket transport (WS/WSS)
+- ✅ WebRTC transport (direct & signaling)
+- ✅ Circuit Relay v2 support
+
+### Phase 2: libp2p Protocol Integration (Universal Connectivity)
+
+**Discovery & Routing:**
+- ✅ mDNS peer discovery (local network)
+- ✅ Kademlia DHT (agent node)
+- 🔄 **Bootstrap nodes** - Connect to public libp2p bootstrap nodes for global discovery
+- 🔄 **Peer exchange (PX)** - Exchange peer lists with connected peers
+- 🔄 **Rendezvous protocol** - Use rendezvous points for peer discovery
+- 🔄 **Autonat** - Automatic NAT detection and traversal
+
+**Advanced Protocols:**
+- 🔄 **Autorelay** - Automatic circuit relay selection and usage
+- 🔄 **QUIC transport** - Add QUIC support for better performance
+- 🔄 **WebTransport** - Browser-native WebTransport support
+
+**Universal Connectivity Workshop Integration:**
+- 🔄 **Workshop exercises** - Integrate examples from universal-connectivity-workshop
+- 🔄 **Protocol demonstrations** - Visualize each protocol's role in the mesh
+- 🔄 **Educational mode** - Step-by-step protocol explanations
+- 🔄 **Interoperability tests** - Test against other libp2p implementations
+
+### Phase 3: LLM Integration & Intelligence
+
+**LLM Enhancements:**
+- ✅ Ollama integration (local)
+- ✅ OpenAI fallback
+- 🔄 **Multiple LLM providers** - Anthropic, Gemini, local models
+- 🔄 **Model switching** - Switch between models on-the-fly
+- 🔄 **Streaming responses** - Real-time token streaming for better UX
+- 🔄 **Context management** - Maintain conversation context across sessions
+- 🔄 **LLM mesh nodes** - Multiple LLM agents in the same mesh
+- 🔄 **Distributed inference** - Split prompts across multiple LLM nodes
+
+**Agent Intelligence:**
+- 🔄 **Agent personas** - Multiple AI personas with different personalities
+- 🔄 **Agent capabilities** - Agents can perform actions (file ops, web search, etc.)
+- 🔄 **Agent-to-agent communication** - LLM agents chat with each other
+- 🔄 **Context awareness** - Agents understand mesh topology and peer states
+- 🔄 **Learning from mesh** - Agents learn from conversations in the mesh
+
+### Phase 4: User Experience & Interface
+
+**UI/UX Improvements:**
+- 🔄 **Mesh visualization** - Graph view of connected peers and topology
+
+**Features:**
+- 🔄 **File sharing** - Share files through the mesh
+
+### Phase 5: Security & Privacy
+
+**Security:**
+- ✅ Noise encryption (transport-level)
+- 🔄 **End-to-end encryption** - Application-level message encryption
+- 🔄 **Perfect forward secrecy** - Rotate keys periodically
+- 🔄 **Message authentication** - Verify message integrity and sender
+- 🔄 **Access control** - Private rooms, invite-only meshes
+- 🔄 **Identity verification** - Cryptographic identity proofs
+- 🔄 **Rate limiting** - Prevent spam and DoS attacks
+
+**Privacy:**
+- 🔄 **Ephemeral messages** - Self-destructing messages
+- 🔄 **Anonymous mode** - Optional anonymity features
+- 🔄 **No message storage** - Option to not store message history
+- 🔄 **IP address hiding** - Use relays to hide real IP addresses
+- 🔄 **Metadata minimization** - Reduce metadata leakage
+
+### Phase 6: Performance & Scalability
+
+**Performance:**
+- 🔄 **Message compression** - Compress large messages
+- 🔄 **Batch operations** - Batch multiple operations together
+
+**Scalability:**
+- 🔄 **Large mesh support**
+- 🔄 **Message sharding** - Split large messages across multiple packets
+- 🔄 **Gossipsub optimization** - Tune Gossipsub parameters for scale
+- 🔄 **DHT optimization** - Better DHT routing for large networks
+- 🔄 **Load balancing** - Distribute load across multiple connections
+
+---
+
 *Built with Svelte, libp2p, and Cosmic Energy.*
