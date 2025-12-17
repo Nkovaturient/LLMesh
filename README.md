@@ -26,6 +26,10 @@ To explore and tinker around the idea that P2P doesn't have to be just limited t
 
 ---
 
+## Prerequisites
+
+- [Ollama](https://ollama.com/download) [Default Model - llama3.2] or [ChatGPT API key](https://platform.openai.com/api-keys)
+
 ## Architecture Flow
 
 ```mermaid
@@ -69,7 +73,7 @@ local running: use `ws` supported multiaddr to connect /ip4/127.0.0.1/tcp/56989/
 production url: use `webrtc-direct` addr /ip4/127.0.0.1/udp/56987/webrtc-direct/certhash/../p2p/..
 ```
 
-### 2. Start the AI (Optional but Cool)
+### 2. Start the AI
 ```bash
 ollama serve
 # Ensure you have llama3.2 pulled: ollama pull llama3.2
@@ -144,7 +148,20 @@ Open `http://localhost:5173`.
 4. Alien X will greet you. Chat away! 🛸
 
 
-### 5. Gratitude to Libp2p-verse.
+
+## 5. ⚠️ Constraints and Challenges ⚠️ (Under construction) 
+### on local setup(running `web/npm run dev` and `app/node index.js`)
+- Requires **Ollama** installed and running simulantenously `Ollama Serve` for local p2p (LLM <--> Node ) support
+- Runs on `/ws` multiaddr format only and not on `tls/ws` or `/tcp`
+
+### using [Deployed dapp](https://llmesh.vercel.app/)
+- Runs on `/webrtc-direct` multiaddr cuz `/ws` are flagged insecure conn
+- Local Ollama and Ngrok tunneling(free tier, as of now) doesnt support for programmatic use, hence, LLM is off! 😀
+
+> Hence, best approach is running locally via Ollama installed 
+
+
+## 6. Gratitude to Libp2p-verse.
 
 - https://libp2p.io
 - https://github.com/libp2p/universal-connectivity-workshop
