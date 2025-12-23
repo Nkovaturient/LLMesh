@@ -51,7 +51,7 @@ async function createUniversalConnectivityNode() {
     ],
     services: {
       identify: identify({
-        protocolPrefix: 'ipfs',
+        protocolPrefix: ['ipfs', '/uc/extension/'],
         agentVersion: 'universal-connectivity-checker/1.0.0'
       }),
       ping: ping({
