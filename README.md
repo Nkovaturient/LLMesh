@@ -6,7 +6,7 @@
 <img width="2816" height="1536" alt="Gemini_Generated_Image_d6qg6ld6qg6ld6qg" src="https://github.com/user-attachments/assets/2c0285ec-744f-4c38-bc41-3c792e5c358e" />
 
 
-- A decentralized, browser-based P2P chat mesh where every peer sends encrypted pulses through libp2p’s GossipSub layer, and an embedded LLM (Ollama- local, Chatgpt-hosted) joins the mesh as its own node, weaving LLM intelligence directly into the peer network.
+- A decentralized, browser-based P2P chat mesh where every peer sends msg(encrypted pulses) through Libp2p’s universal-connectivity, and an embedded LLM (Ollama- local, Chatgpt-hosted) joins the mesh as its own node, weaving LLM intelligence directly into the peer network.
 - Bridging the gap b/w raw peer-to-peer protocols and a fun, interactive user experience.
 
 ---
