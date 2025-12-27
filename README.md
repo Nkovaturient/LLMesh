@@ -6,7 +6,7 @@
 <img width="2816" height="1536" alt="Gemini_Generated_Image_d6qg6ld6qg6ld6qg" src="https://github.com/user-attachments/assets/2c0285ec-744f-4c38-bc41-3c792e5c358e" />
 
 
-- A decentralized, browser-based P2P chat mesh where every peer sends encrypted pulses through libp2p’s GossipSub layer, and an embedded LLM (Ollama- local, Chatgpt-hosted) joins the mesh as its own node, weaving LLM intelligence directly into the peer network.
+- A decentralized, browser-based P2P chat mesh where every peer sends msg(encrypted pulses) through Libp2p’s universal-connectivity, and an embedded LLM (Ollama- local, Chatgpt-hosted) joins the mesh as its own node, weaving LLM intelligence directly into the peer network.
 - Bridging the gap b/w raw peer-to-peer protocols and a fun, interactive user experience.
 
 ---
@@ -14,7 +14,8 @@
 ## Why this exists
 <!-- <img width="1307" height="703" alt="Screenshot 2025-12-12 at 1 55 03 AM" src="https://github.com/user-attachments/assets/0c1edff4-9820-4863-b9b1-2a4bf6d71aab" /> -->
 
-To explore and tinker around the idea that P2P doesn't have to be just limited to boring terminal logs. By combining **js-libp2p: universal-connectivity** with a local **LLM Agent**, I tried to create a "living" mesh where your first peer is a cosmic entity(llm-persona) that helps you flow. No central servers, just you, your peers, and the Forge of Creation.
+- To explore and tinker around the idea that P2P doesn't have to be just limited to boring terminal logs. By combining **js-libp2p: universal-connectivity** with a local **LLM Agent**, I tried to create a "living" mesh where your first peer is a cosmic entity(llm-persona) that helps you flow.
+-  No central servers, just you, your peers, and the Forge of Creation.
 
 ## Features
 - **Browser-to-Terminal Mesh**: Connect directly from your browser to a headless Node.js agent via WebSockets.
