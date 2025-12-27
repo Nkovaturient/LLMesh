@@ -5,10 +5,7 @@
   "main": "index.js",
   "type": "module",
   "scripts": {
-    "start": "node index.js",
-    "demo": "node demo-two-nodes.js",
-    "chat": "node chat-node.js",
-    "test": "node test-gossipsub.js"
+    "start": "tsx index.js"
   },
   "dependencies": {
     "@chainsafe/libp2p-noise": "^17.0.0",
@@ -33,5 +30,9 @@
     "multiformats": "^13.4.1",
     "uint8arrays": "^5.1.0",
     "ws": "^8.18.3"
+  },
+  "devDependencies": {
+    "tsx": "^4.21.0",
+    "typescript": "^5.9.3"
   }
 }

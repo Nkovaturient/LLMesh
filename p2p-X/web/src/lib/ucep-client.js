@@ -2,7 +2,7 @@
 
 import { peerIdFromString } from '@libp2p/peer-id'
 import { pbStream } from 'it-protobuf-stream'
-import { ext } from './protobuf/extension.ts'
+import { ext } from './protobuf/extension.js'
 
 /**
  * Simple Extension Test Client
@@ -91,14 +91,13 @@ export class ExtensionTestClient {
       const response = await datastream.read(ext.Response, { signal })
 
       console.log('🔍 Extension Test Client: Received response:', {
-        payload: response.payload,
         hasManifest: !!response.manifest,
         hasCommand: !!response.command,
         responseKeys: Object.keys(response),
         manifestData: response.manifest
       })
 
-      if (response.payload === 'manifest' || response.manifest?.manifest) {
+      if (response.manifest?.manifest) {
         return {
           id: response.manifest.manifest.id,
           name: response.manifest.manifest.name,
@@ -158,7 +157,7 @@ export class ExtensionTestClient {
 
       const response = await datastream.read(ext.Response, { signal })
 
-      if (response.payload === 'command' && response.command) {
+      if (response.command) {
         if (response.command.success) {
           console.log(`✅ Command succeeded`)
           return {
@@ -209,12 +208,14 @@ export class ExtensionTestClient {
  * Call this from browser console
  */
 export async function testExtension(extensionId, command, args = []) {
-  if (!window.extensionTestClient) {
+  // @ts-ignore - window.extensionTestClient is set at runtime
+  if (typeof window === 'undefined' || !window.extensionTestClient) {
     console.error('❌ Extension test client not initialized')
     return
   }
 
   try {
+    // @ts-ignore - window.extensionTestClient is set at runtime
     const result = await window.extensionTestClient.executeCommand(extensionId, command, args)
     console.log('📥 Result:', result)
     return result

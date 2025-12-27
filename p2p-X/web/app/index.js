@@ -13,6 +13,7 @@ import { multiaddr } from '@multiformats/multiaddr'
 import { ChatRoom } from './chatroom.js'
 import { mdns } from '@libp2p/mdns'
 import { circuitRelayTransport } from '@libp2p/circuit-relay-v2'
+import { ExtensionTestClient } from './UCEP-client.js'
 
 /**
  * Create a fully configured libp2p node with all protocols
@@ -55,7 +56,7 @@ async function createUniversalConnectivityNode() {
         agentVersion: 'universal-connectivity-checker/1.0.0'
       }),
       ping: ping({
-        protocolPrefix: 'ipfs'
+        protocolPrefix: ['ipfs', '/uc/extension/']
       }),
       pubsub: gossipsub({
         emitSelf: false,
@@ -205,6 +206,11 @@ async function main() {
 
     // Set up event handlers
     setupEventHandlers(node)
+
+    // Initialize UCEP Extension Client
+    const extensionClient = new ExtensionTestClient(node)
+    await extensionClient.start()
+    console.log('[UCEP] Extension discovery client initialized')
 
     // Get remote peer addresses from environment variable or command line
     const remotePeerEnv = process.env.REMOTE_PEER || process.env.REMOTE_PEERS || ''

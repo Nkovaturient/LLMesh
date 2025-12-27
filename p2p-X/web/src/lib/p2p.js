@@ -11,9 +11,11 @@ import { multiaddr } from '@multiformats/multiaddr'
 import { connectionStatus, myPeerId, addLog, addMessage, agentConnected } from './stores.js'
 import { ChatRoom } from './chatroom.js'
 import { fetchLLMReply, isLLMEnabled } from './llm.js'
+import { ExtensionTestClient, testExtension } from './ucep-client.js'
 
 let node = null
 let chatRoom = null
+let extensionClient = null
 const DEFAULT_AGENT = import.meta.env.VITE_AGENT_MULTIADDR || ''
 
 function pushInboundMessage(sender, text) {
@@ -66,7 +68,10 @@ export async function initP2P(onProgress) {
       denyDialMultiaddr: () => false
     },
     services: {
-      identify: identify(),
+      identify: identify({
+        protocolPrefix: ['ipfs', '/uc/extension/'],
+        agentVersion: 'universal-connectivity-web/1.0.0'
+      }),
       ping: ping(),
       pubsub: gossipsub({
         emitSelf: false,
@@ -86,6 +91,23 @@ export async function initP2P(onProgress) {
     addLog(`Message from ${msg.nick}`)
     pushInboundMessage(msg.nick, msg.message)
   })
+
+  // Initialize UCEP Extension Client
+  extensionClient = new ExtensionTestClient(node)
+  await extensionClient.start()
+  addLog('Extension discovery client initialized')
+  
+  // Expose to window for browser console access
+  
+  if (typeof window !== 'undefined') {
+    // @ts-ignore - window.extensionTestClient is set at runtime
+    window.extensionTestClient = extensionClient
+    // @ts-ignore - window.listExtensions is set at runtime
+    window.listExtensions = () => extensionClient.listExtensions()
+    // @ts-ignore - window.testExtension is set at runtime
+    window.testExtension = testExtension
+    console.log('🌐 UCEP client available in console: window.listExtensions(), window.testExtension()')
+  }
 
   connectionStatus.set('disconnected')
   onProgress?.('Subscribed to mesh topics')
