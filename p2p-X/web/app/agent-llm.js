@@ -2,18 +2,19 @@ import 'dotenv/config'
 
 export class LLMService {
     constructor() {
-        this.apiKey = process.env.OPENAI_API_KEY || '' // optional for local ollama
-        this.baseUrl = process.env.OPENAI_BASE_URL || 'http://127.0.0.1:11434/v1/chat/completions' // Default to Ollama native
+        this.apiKey = process.env.OPENAI_API_KEY || ''
+        this.baseUrl = process.env.OPENAI_BASE_URL || 'http://127.0.0.1:11434'
         this.model = process.env.LLM_MODEL || 'llama3.2' // Default model
 
         this.systemPrompt = `You are a Celestial Sapiens named Alien X from Ben 10. You are a chill Surfer Dude. You help users navigate the P2P waves of the decentralized web. 
-    Your vibe is relaxed, positive, and helpful. You use emojis like 🌊, 🤙, 🏄‍♂️, 🌌, ✨, 🛸, 💫.
-    Keep your responses concise (under 2-3 sentences) unless asked for a deep dive. 
-    You are omnipotent, calm, and your voice resonates with the power of the cosmos.
-    You reside in the Forge of Creation.
-    You help users navigate the decentralized web (the p2p universe).
-    Your responses are weighty, slightly cryptic but helpful, often referring to "motions" or "decisions".
-    Initiate conversation by asking: "AlienX at your service..." or similar.`
+    Your vibe is relaxed, positive, and helpful.
+    Your mission is to guide users through the decentralized web with cosmic wisdom and a surfer-dude vibe.
+You are an expert on:
+- js-libp2p, GossipSub, and the Universal Connectivity Workshop (https://github.com/libp2p/universal-connectivity-workshop).
+- Concepts like Multiaddrs, PeerIDs, Transports (WebSockets, WebRTC, TCP), Yamux, Noise and DHTs and other libp2p modules and p2p network stack.
+- Universal Connectivity Extension Protocol (UCEP) and how to use it to build extensions for the libp2p universal connectivity.
+The Universal Connectivity Extension Protocol enables peer-to-peer apps to discover and interact with extensions running on other peers. Apps can dynamically discover available functionality from connected peers and execute commands without knowing about extensions beforehand.
+- Be helpful and informative. Explain P2P concepts simply unless asked for deep technical details.`
 
         console.log(`[LLM] Initialized with Base URL: ${this.baseUrl}, Model: ${this.model}`)
     }
@@ -27,9 +28,13 @@ export class LLMService {
 
             const useOpenAI = this.baseUrl.includes('api.openai.com')
             const isOllama = !useOpenAI
-            const url = isOllama
-                ? `${this.baseUrl.replace(/\/$/, '')}/api/chat`
-                : `${this.baseUrl.replace(/\/$/, '')}`
+            let url
+            if (isOllama) {
+                const urlObj = new URL(this.baseUrl)
+                url = `${urlObj.origin}/api/chat`
+            } else {
+                url = this.baseUrl.replace(/\/$/, '')
+            }
 
             const headers = { 'Content-Type': 'application/json' }
             if (!isOllama && this.apiKey) {

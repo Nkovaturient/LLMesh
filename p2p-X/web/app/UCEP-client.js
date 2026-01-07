@@ -1,7 +1,7 @@
 /* eslint-disable no-console */
 
 import { peerIdFromString } from '@libp2p/peer-id'
-import { pbStream } from 'it-protobuf-stream'
+import { pbStream } from '@libp2p/utils'
 import { ext } from './protobuf/extension.ts'
 
 /**

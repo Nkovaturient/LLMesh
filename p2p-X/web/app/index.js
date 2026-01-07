@@ -14,6 +14,9 @@ import { ChatRoom } from './chatroom.js'
 import { mdns } from '@libp2p/mdns'
 import { circuitRelayTransport } from '@libp2p/circuit-relay-v2'
 import { ExtensionTestClient } from './UCEP-client.js'
+import { registerExtension, createEchoExtension } from './extension-provider.js'
+import { createLLMExtension } from './llm-extension-provider.js'
+import { LLMService } from './agent-llm.js'
 
 /**
  * Create a fully configured libp2p node with all protocols
@@ -50,13 +53,15 @@ async function createUniversalConnectivityNode() {
     peerDiscovery: [
       mdns()
     ],
+    nodeInfo: {
+      userAgent: 'universal-connectivity-checker/1.0.0'
+    },
     services: {
       identify: identify({
-        protocolPrefix: ['ipfs', '/uc/extension/'],
-        agentVersion: 'universal-connectivity-checker/1.0.0'
+        protocolPrefix: 'ipfs'
       }),
       ping: ping({
-        protocolPrefix: ['ipfs', '/uc/extension/']
+        protocolPrefix: 'ipfs'
       }),
       pubsub: gossipsub({
         emitSelf: false,
@@ -206,6 +211,17 @@ async function main() {
 
     // Set up event handlers
     setupEventHandlers(node)
+
+    // Register example extension (must be done AFTER node.start())
+    const echoExt = createEchoExtension()
+    await registerExtension(node, echoExt.id, echoExt.version, echoExt, echoExt.handler)
+    console.log('[UCEP] Example extension registered: echo')
+
+    // Register LLM extension (must be done AFTER node.start())
+    const llmService = new LLMService()
+    const llmExt = createLLMExtension(llmService)
+    await registerExtension(node, llmExt.id, llmExt.version, llmExt, llmExt.handler)
+    console.log('[UCEP] LLM extension registered: alien-x-llm')
 
     // Initialize UCEP Extension Client
     const extensionClient = new ExtensionTestClient(node)
