@@ -1,4 +1,4 @@
-# LLMesh 🛸🌊
+# LLMesh 🛸🌊  <img src="https://img.shields.io/badge/Universal%20Connectivity%20Workshop-navy" alt="UC Workshop" /> <img src="https://img.shields.io/badge/Libp2p%20-yellow" alt="Libp2p" />
 
 > **Navigate the Decentralized Cosmos: P2P Chat with LLM Intelligence**
 
@@ -6,13 +6,20 @@ A browser-based P2P chat mesh where **LLM joins as a peer** via **UCEP extension
 
 <img width="2816" height="1536" alt="Gemini_Generated_Image_d6qg6ld6qg6ld6qg" src="https://github.com/user-attachments/assets/2c0285ec-744f-4c38-bc41-3c792e5c358e" />
 
-## What It Is
+## What It Is 🌌
 
 - **Decentralized Chat** - No servers, just peers talking directly
 - **LLM as Extension** - AI assistant discoverable via UCEP protocol
 - **Browser-to-Terminal** - Connect browser UI to headless agent node
 - **GossipSub Mesh** - Real-time message broadcasting
 
+## Why this exists
+<!-- <img width="1307" height="703" alt="Screenshot 2025-12-12 at 1 55 03 AM" src="https://github.com/user-attachments/assets/0c1edff4-9820-4863-b9b1-2a4bf6d71aab" /> -->
+
+- To explore and tinker around the idea that P2P doesn't have to be just limited to boring terminal logs. By combining **js-libp2p: universal-connectivity** with a local **LLM Agent**, I tried to create a "living" mesh where your first peer is a cosmic entity(llm-persona) that helps you flow.
+-  No central servers, just you, your peers, and the Forge of Creation.
+
+  
 ## Core Features
 
 ### 🛸 UCEP Extension System
@@ -29,6 +36,8 @@ A browser-based P2P chat mesh where **LLM joins as a peer** via **UCEP extension
 - **Ollama** - Local LLM (default: llama3.2)
 - **OpenAI** - Cloud fallback option
 - **UCEP Extension** - Discoverable AI service
+
+<img width="1702" height="876" alt="Screenshot 2025-12-12 at 2 03 55 AM" src="https://github.com/user-attachments/assets/40639b2e-0c00-4a61-a6e5-4a8670f34af8" />
 
 ## Architecture Flow
 
@@ -51,6 +60,24 @@ A browser-based P2P chat mesh where **LLM joins as a peer** via **UCEP extension
 └─────────────┘                    └─────────────┘
 ```
 
+```mermaid
+graph LR
+    User[Browser Node] -- WebSocket Dial --> Agent[Terminal Node]
+    Agent -- GossipSub Mesh --> User
+    Agent -- Loopback --> Ollama[Local LLM]
+    Ollama -- Reply --> Agent
+    Agent -- PubSub Message --> User
+```
+
+1. **Browser** spawns a libp2p node (WebSocket transport).
+2. **Terminal Agent** listens on TCP + WebSocket and bridges the LLM.
+3. **Connect**: Browser dials Agent's `/ws` multiaddr.
+4. **Mesh**: Gossipsub mesh forms; peers sync.
+5. **Chat**: Messages flow over the mesh; Alien X replies via the Agent logic.
+
+<img width="1686" height="976" alt="Screenshot 2025-12-13 at 1 57 44 AM" src="https://github.com/user-attachments/assets/2ecbb362-4a0a-407c-95b0-5b37a6b1f96d" />
+
+
 ### UCEP Extension Flow
 
 ```
@@ -72,11 +99,21 @@ A browser-based P2P chat mesh where **LLM joins as a peer** via **UCEP extension
                └─> Returns to browser
 ```
 
+- **Discovery** - Via Identify protocol
+- **Manifest** - Extension metadata exchange
+- **Execution** - Direct protobuf streams
+- **Decoupled** - Extensions independent of chat
+
+
 ## Quick Start
+
+https://github.com/user-attachments/assets/bff792b4-ea03-4841-b8c6-64d1b0960a78
+
 
 ### Prerequisites
 - **Node.js** (v18+)
 - **Ollama** ([Download](https://ollama.com/download)) - Optional but recommended
+- [ChatGPT API key](https://platform.openai.com/api-keys)
 - **Model**: `llama3.2` (auto-downloaded on first use)
 
 ### Step 1: Start Terminal Agent
@@ -123,7 +160,7 @@ Open `http://localhost:5173`
 |---------|--------|---------|
 | **Local** | `/ip4/127.0.0.1/tcp/XXXX/ws/p2p/...` | ✅ Use this |
 | **Production** | `/ip4/.../udp/.../webrtc-direct/...` | HTTPS required |
-| **Wrong** | `/tcp/...` or `/tls/ws/...` | ❌ Don't use |
+| **Wrong** | `/tcp/...` or `/tls/ws/...` | ❌ Not supported |
 
 ## Requirements
 
@@ -171,29 +208,6 @@ window.testExtension('echo', 'echo', ['test message'])
 window.testExtension('echo', 'ping')
 ```
 
-## Troubleshooting
-
-| Problem | Fix |
-|---------|-----|
-| **404 LLM Error** | Start Ollama: `ollama serve` |
-| **Extension Not Found** | Wait 2-3s for Identify protocol |
-| **Connection Failed** | Check multiaddr includes `/ws` |
-| **No Mesh** | Verify GossipSub subscription logs |
-| **CORS Error** | Use local setup (not production) |
-
-## Architecture Highlights
-
-### UCEP (Universal Connectivity Extension Protocol)
-- **Discovery** - Via Identify protocol
-- **Manifest** - Extension metadata exchange
-- **Execution** - Direct protobuf streams
-- **Decoupled** - Extensions independent of chat
-
-### GossipSub Extensions
-- **Topic-Based** - Spreadsheet extensions
-- **Independent** - Works alongside UCEP
-- **Compatible** - Both systems coexist
-
 ## What Makes It Special
 
 ✨ **LLM as Peer** - AI joins the mesh, not just responds  
@@ -210,6 +224,4 @@ window.testExtension('echo', 'ping')
 
 ---
 
-**Built with Svelte, Libp2p, and Cosmic Energy** ❤️‍🔥🚀
-
-*The decentralized future is in your hands!*
+**Built with Svelte, Libp2p, and Cosmic Energy imbibed from Universal Connectivity Workshop.** ❤️‍🔥🚀
