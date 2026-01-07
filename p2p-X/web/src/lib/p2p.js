@@ -12,10 +12,14 @@ import { connectionStatus, myPeerId, addLog, addMessage, agentConnected } from '
 import { ChatRoom } from './chatroom.js'
 import { fetchLLMReply, isLLMEnabled } from './llm.js'
 import { ExtensionTestClient, testExtension } from './ucep-client.js'
+import { registerExtension, createEchoExtension } from './extension-provider.js'
+import { GossipSubExtensionManager } from './gossipsub-extension-manager.js'
 
 let node = null
 let chatRoom = null
 let extensionClient = null
+let gossipsubExtensionManager = null
+let llmExtensionPeerId = null
 const DEFAULT_AGENT = import.meta.env.VITE_AGENT_MULTIADDR || ''
 
 function pushInboundMessage(sender, text) {
@@ -69,8 +73,8 @@ export async function initP2P(onProgress) {
     },
     services: {
       identify: identify({
-        protocolPrefix: ['ipfs', '/uc/extension/'],
-        agentVersion: 'universal-connectivity-web/1.0.0'
+        protocolPrefix: 'ipfs',
+        // agentVersion: 'universal-connectivity-web/1.0.0'
       }),
       ping: ping(),
       pubsub: gossipsub({
@@ -86,27 +90,79 @@ export async function initP2P(onProgress) {
   myPeerId.set(node.peerId.toString())
   addLog(`Node ready as ${node.peerId.toString().slice(-8)}`)
 
+  // Register example extension (must be done AFTER node.start())
+  const echoExt = createEchoExtension()
+  await registerExtension(node, echoExt.id, echoExt.version, echoExt, echoExt.handler)
+  addLog('Example extension registered: echo')
+
   chatRoom = await ChatRoom.join(node, null)
   chatRoom.onMessage((msg) => {
     addLog(`Message from ${msg.nick}`)
     pushInboundMessage(msg.nick, msg.message)
   })
 
-  // Initialize UCEP Extension Client
+  // Initialize UCEP Extension Client (protocol-based discovery)
   extensionClient = new ExtensionTestClient(node)
   await extensionClient.start()
-  addLog('Extension discovery client initialized')
+  addLog('UCEP extension discovery client initialized')
+  
+  // Monitor for LLM extension discovery
+  node.addEventListener('peer:identify', async (evt) => {
+    const { peerId, protocols } = evt.detail
+    const llmProtocol = protocols.find(p => p.startsWith('/uc/extension/'))
+    if (llmProtocol) {
+      const { setLLMExtension } = await import('./llm-ucep-client.js')
+      setLLMExtension(peerId.toString(), llmProtocol)
+      llmExtensionPeerId = peerId.toString()
+      addLog('LLM extension discovered from terminal node')
+    }
+  })
+  
+  // Clear LLM extension on disconnect
+  node.addEventListener('peer:disconnect', async (evt) => {
+    const disconnectedPeerId = evt.detail.toString()
+    if (llmExtensionPeerId === disconnectedPeerId) {
+      const { clearLLMExtension } = await import('./llm-ucep-client.js')
+      clearLLMExtension()
+      llmExtensionPeerId = null
+      addLog('LLM extension disconnected')
+    }
+  })
+  
+  // Initialize GossipSub Extension Manager (topic-based discovery for spreadsheet)
+  gossipsubExtensionManager = new GossipSubExtensionManager(node)
+  await gossipsubExtensionManager.start()
+  gossipsubExtensionManager.loadInstalledExtensions()
+  addLog('GossipSub extension manager initialized')
   
   // Expose to window for browser console access
-  
   if (typeof window !== 'undefined') {
+    // UCEP extensions
     // @ts-ignore - window.extensionTestClient is set at runtime
     window.extensionTestClient = extensionClient
     // @ts-ignore - window.listExtensions is set at runtime
-    window.listExtensions = () => extensionClient.listExtensions()
+    window.listExtensions = () => {
+      console.log('=== UCEP Extensions ===')
+      extensionClient.listExtensions()
+      console.log('=== GossipSub Extensions ===')
+      gossipsubExtensionManager.listExtensions()
+    }
     // @ts-ignore - window.testExtension is set at runtime
     window.testExtension = testExtension
-    console.log('🌐 UCEP client available in console: window.listExtensions(), window.testExtension()')
+    
+    // GossipSub extensions
+    // @ts-ignore - window.gossipsubExtensionManager is set at runtime
+    window.gossipsubExtensionManager = gossipsubExtensionManager
+    // @ts-ignore - window.installExtension is set at runtime
+    window.installExtension = (id) => gossipsubExtensionManager.installExtension(id)
+    // @ts-ignore - window.executeExtensionCommand is set at runtime
+    window.executeExtensionCommand = (id, cmd, args) => gossipsubExtensionManager.executeCommand(id, cmd, args)
+    
+    console.log('🌐 Extension commands available:')
+    console.log('  - window.listExtensions() - List all discovered extensions')
+    console.log('  - window.testExtension(id, cmd, args) - Test UCEP extension')
+    console.log('  - window.installExtension(id) - Install GossipSub extension')
+    console.log('  - window.executeExtensionCommand(id, cmd, args) - Execute GossipSub extension command')
   }
 
   connectionStatus.set('disconnected')
@@ -269,8 +325,6 @@ export async function connectToAgent(agentMultiaddrStr = DEFAULT_AGENT) {
       emitAgentGreeting()
     } else {
       addLog('Warning: Connected but no mesh peers found yet.')
-      // We still mark as connected to allow retries or manual waits, 
-      // but the UI might show "0 peers"
       connectionStatus.set('connected') 
     }
 
@@ -284,8 +338,7 @@ export async function connectToAgent(agentMultiaddrStr = DEFAULT_AGENT) {
     let userMessage = err.message
     if (err.message.includes('insecure WebSocket') || err.message.includes('Mixed Content')) {
       userMessage = `Cannot connect: The agent address uses insecure WebSocket (ws://). ` +
-        `Since this app runs on HTTPS, you need to use WSS or a tunnel service. ` +
-        `See DEPLOYMENT.md for setup instructions.`
+        `Since this app runs on HTTPS, you need to use WSS or a tunnel service. `
     }
     
     alert(`Connection Failed\n\n${userMessage}`)
@@ -311,11 +364,40 @@ export async function sendChatMessage(text) {
         return
       }
       const peerId = node?.peerId?.toString?.() || ''
-      fetchLLMReply(text, peerId).then((reply) => {
-        if (reply) {
-          pushInboundMessage('Alien X', reply)
-        }
-      })
+      
+      // Try UCEP extension first, fallback to direct LLM
+      const { isLLMExtensionAvailable, executeLLMCommand } = await import('./llm-ucep-client.js')
+      
+      if (isLLMExtensionAvailable()) {
+        // Use UCEP extension (terminal node)
+        executeLLMCommand(node, 'chat', [text, peerId]).then((result) => {
+          if (result?.success && result?.data?.reply) {
+            pushInboundMessage('Alien X', result.data.reply)
+          } else {
+            // Fallback to direct LLM
+            fetchLLMReply(text, peerId).then((reply) => {
+              if (reply) {
+                pushInboundMessage('Alien X', reply)
+              }
+            })
+          }
+        }).catch((error) => {
+          console.warn('[LLM] UCEP extension failed, falling back to direct LLM:', error.message)
+          // Fallback to direct LLM
+          fetchLLMReply(text, peerId).then((reply) => {
+            if (reply) {
+              pushInboundMessage('Alien X', reply)
+            }
+          })
+        })
+      } else {
+        // Use direct LLM (browser-based)
+        fetchLLMReply(text, peerId).then((reply) => {
+          if (reply) {
+            pushInboundMessage('Alien X', reply)
+          }
+        })
+      }
     }
   } catch (err) {
     addLog(`Send failed: ${err.message}`)

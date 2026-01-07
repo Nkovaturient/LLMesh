@@ -1,7 +1,7 @@
 import { toString as uint8ArrayToString } from 'uint8arrays/to-string'
 import { createChatMessage, decodeMessage, isChatMessage, getChatMessageText } from './proto-messages.js'
 
-const PUBSUB_DISCOVERY_TOPIC = 'universal-connectivity-workshop-js-peer-discovery'
+const PUBSUB_DISCOVERY_TOPIC = 'universal-connectivity-browser-peer-discovery'
 export const CHAT_TOPIC = 'universal-connectivity'
 
 

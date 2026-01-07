@@ -1,7 +1,7 @@
 /* eslint-disable no-console */
 
 import { peerIdFromString } from '@libp2p/peer-id'
-import { pbStream } from 'it-protobuf-stream'
+import { pbStream } from '@libp2p/utils'
 import { ext } from './protobuf/extension.js'
 
 /**
@@ -79,7 +79,6 @@ export class ExtensionTestClient {
 
     try {
       const request = {
-        payload: 'manifest',
         manifest: {
           timestamp: BigInt(Date.now())
         }
@@ -140,7 +139,6 @@ export class ExtensionTestClient {
     try {
       const requestId = crypto.randomUUID()
       const request = {
-        payload: 'command',
         command: {
           requestId,
           extensionId,

@@ -2,7 +2,7 @@ const isProduction = import.meta.env.PROD || window.location.hostname !== 'local
 
 // Use proxy endpoint in production to avoid CORS issues, direct URL in development
 const OLLAMA_BASE_URL = import.meta.env.VITE_LLM_BASE_URL || 'http://127.0.0.1:11434'
-const BASE_URL = isProduction 
+const BASE_URL = isProduction
   ? '/api/ollama-proxy'  // Use Vercel serverless function proxy
   : `${OLLAMA_BASE_URL}`  // Direct connection in development
 
@@ -15,6 +15,14 @@ Your mission is to guide users through the decentralized web with cosmic wisdom 
 You are an expert on:
 - js-libp2p, GossipSub, and the Universal Connectivity Workshop (https://github.com/libp2p/universal-connectivity-workshop).
 - Concepts like Multiaddrs, PeerIDs, Transports (WebSockets, WebRTC, TCP), Yamux, Noise and DHTs and other libp2p modules and p2p network stack.
+- Universal Connectivity Extension Protocol (UCEP) and how to use it to build extensions for the libp2p universal connectivity.
+The Universal Connectivity Extension Protocol enables peer-to-peer apps to discover and interact with extensions running on other peers. Apps can dynamically discover available functionality from connected peers and execute commands without knowing about extensions beforehand.
+
+How it works
+Discovery: Peers advertise extensions via libp2p identify protocol with custom protocol IDs: /uc/extension/{extensionId}/{version}
+Manifest Exchange: Peers request extension manifests containing metadata, commands, and UI URLs
+Command Execution: Execute commands on remote extensions via protobuf-encoded messages over direct streams
+User Installation: Users can install extensions from peers and access their functionality through the chat interface
 
 Personality:
 - Omnipotent but chill. You speak with weight yet keep it breezy. 🌌 🤙
@@ -67,9 +75,55 @@ async function callEndpoint(baseUrl, apiKey, model, messages, isOllama) {
     : data?.choices?.[0]?.message?.content?.trim()
 }
 
+/**
+ * Get extension context for LLM
+ * This is called dynamically to include current extension state
+ */
+export function getExtensionContext() {
+  if (typeof window === 'undefined') return ''
+
+  const contexts = []
+
+  // UCEP extensions
+  if (window.extensionTestClient) {
+    const ucepExts = window.extensionTestClient.discoveredExtensions || new Map()
+    if (ucepExts.size > 0) {
+      const ucepList = Array.from(ucepExts.values()).map(ext => {
+        const commands = ext.manifest?.commands?.map(cmd =>
+          `    - ${cmd.syntax || cmd.name}: ${cmd.description || ''}`
+        ).join('\n') || '    (no commands)'
+        return `  ${ext.manifest?.name || 'Unknown'} (UCEP):
+    Commands:
+${commands}`
+      }).join('\n\n')
+      contexts.push(`UCEP Extensions:\n${ucepList}`)
+    }
+  }
+
+  // GossipSub extensions
+  if (window.gossipsubExtensionManager) {
+    const gsContext = window.gossipsubExtensionManager.getExtensionContext()
+    if (gsContext) {
+      contexts.push(gsContext)
+    }
+  }
+
+  return contexts.length > 0 ? `\n\n## Available Extensions\n\n${contexts.join('\n\n')}` : ''
+}
+
 export async function fetchLLMReply(userMessage, peerId = '') {
+  // Get dynamic extension context
+  const extensionContext = getExtensionContext()
+  const fullSystemPrompt = SYSTEM_PROMPT + extensionContext + `
+  
+Extension Commands:
+- You can suggest users to use extension commands when relevant
+- For spreadsheet extension: /sheet-list, /sheet-show <topic> <cell>, /sheet-write <topic> <cell>=<value>
+- Users can also use window.listExtensions() and window.testExtension(id, command, args) in console
+- When users ask about spreadsheet data, suggest using /sheet-show or /sheet-write commands`
+
   const messages = [
-    { role: 'system', content: SYSTEM_PROMPT },
+    { role: 'system', content: fullSystemPrompt },
     { role: 'user', content: `Peer ${peerId.slice(-8) || 'browser'} says: ${userMessage}` }
   ]
 
