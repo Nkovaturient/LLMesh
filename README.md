@@ -2,7 +2,7 @@
 
 > **Navigate the Decentralized Cosmos: P2P Chat with LLM Intelligence**
 
-A browser-based P2P chat mesh where **LLM joins as a peer** via **UCEP extensions**, creating a living network where AI and humans chat together in a fully decentralized manner.
+- A browser-based P2P chat mesh where **LLM joins as a peer** via **UCEP extensions**, creating a living network where AI and humans chat together in a fully decentralized manner.
 
 <img width="2816" height="1536" alt="Gemini_Generated_Image_d6qg6ld6qg6ld6qg" src="https://github.com/user-attachments/assets/2c0285ec-744f-4c38-bc41-3c792e5c358e" />
 
@@ -114,7 +114,7 @@ https://github.com/user-attachments/assets/bff792b4-ea03-4841-b8c6-64d1b0960a78
 - **Node.js** (v18+)
 - **Ollama** ([Download](https://ollama.com/download)) - Optional but recommended
 - [ChatGPT API key](https://platform.openai.com/api-keys)
-- **Model**: `llama3.2` (auto-downloaded on first use)
+- **Model**: `llama3.2` (default) (auto-downloaded on first use)
 
 ### Step 1: Start Terminal Agent
 ```bash
