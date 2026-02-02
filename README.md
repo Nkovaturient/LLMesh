@@ -221,6 +221,7 @@ window.testExtension('echo', 'ping')
 - **libp2p Docs**: https://docs.libp2p.io/
 - **Universal Connectivity Workshop**: https://github.com/libp2p/universal-connectivity-workshop
 - **js-libp2p**: https://github.com/libp2p/js-libp2p
+- **Universal Connectivity Extension Protocol**: https://github.com/NiKrause/universal-connectivity/blob/main/EXTENSION_SYSTEM_README.md
 
 ---
 
