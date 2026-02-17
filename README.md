@@ -6,7 +6,7 @@
 
 <img width="2816" height="1536" alt="Gemini_Generated_Image_d6qg6ld6qg6ld6qg" src="https://github.com/user-attachments/assets/2c0285ec-744f-4c38-bc41-3c792e5c358e" />
 
-## What It Is 🌌
+## What It Is 
 
 - **Decentralized Chat** - No servers, just peers talking directly
 - **LLM as Extension** - AI assistant discoverable via UCEP protocol
