@@ -1,5 +1,5 @@
-# LLMesh 🛸🌊  <img src="https://img.shields.io/badge/Universal%20Connectivity%20Workshop-navy" alt="UC Workshop" /> <img src="https://img.shields.io/badge/Libp2p%20-yellow" alt="Libp2p" /> <img src="https://img.shields.io/badge/libp2p Universal%20Connectivity%20Hackathon-emerald" alt="UC Workshop" />  [3rd Pize](https://github.com/libp2p/universal-connectivity-workshop/discussions/12#discussioncomment-15328649)
-
+# LLMesh 🛸🌊   [3rd Pize](https://github.com/libp2p/universal-connectivity-workshop/discussions/12#discussioncomment-15328649)
+<img src="https://img.shields.io/badge/Universal%20Connectivity%20Workshop-navy" alt="UC Workshop" /> <img src="https://img.shields.io/badge/Libp2p%20-yellow" alt="Libp2p" /> <img src="https://img.shields.io/badge/libp2p Universal%20Connectivity%20Hackathon-emerald" alt="UC Workshop" />
 
 
 > **Navigate the Decentralized Cosmos: P2P Chat with LLM Intelligence**
