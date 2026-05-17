@@ -53,7 +53,7 @@ export function getLLMExtensionClient() {
 /**
  * Execute LLM command via UCEP
  */
-export async function executeLLMCommand(node, command, args = []) {
+export async function executeLLMCommand(node, command, args = [], options = {}) {
   if (!isLLMExtensionAvailable()) {
     throw new Error('LLM extension not available')
   }
@@ -78,7 +78,8 @@ export async function executeLLMCommand(node, command, args = []) {
       }
     }
 
-    const signal = AbortSignal.timeout(30000)
+    const timeoutMs = options.timeoutMs ?? 30000
+    const signal = AbortSignal.timeout(timeoutMs)
     await datastream.write(request, ext.Request, { signal })
 
     const response = await datastream.read(ext.Response, { signal })

@@ -75,4 +75,93 @@ The Universal Connectivity Extension Protocol enables peer-to-peer apps to disco
             return `Total bummer, dude. My connection to the cosmic mind is down. 🌊 (Error: ${error.message})`
         }
     }
+
+    async analyzeFile(filename, mimeType, fileBuffer, peerId) {
+        try {
+            console.log(`[LLM] Analyzing file ${filename} (${mimeType}) from ${peerId}...`)
+            const useOpenAI = this.baseUrl.includes('api.openai.com')
+            const isOllama = !useOpenAI
+            let url
+            if (isOllama) {
+                const urlObj = new URL(this.baseUrl)
+                url = `${urlObj.origin}/api/chat`
+            } else {
+                url = this.baseUrl.replace(/\/$/, '')
+            }
+
+            const headers = { 'Content-Type': 'application/json' }
+            if (!isOllama && this.apiKey) {
+                headers['Authorization'] = `Bearer ${this.apiKey}`
+            }
+
+            let messages = []
+
+            // Handle Text-based files
+            if (mimeType.includes('text') || filename.endsWith('.txt') || filename.endsWith('.md') || filename.endsWith('.csv') || filename.endsWith('.json') || filename.endsWith('.js')) {
+                const textContent = new TextDecoder().decode(fileBuffer)
+                messages = [
+                    { role: 'system', content: this.systemPrompt },
+                    { role: 'user', content: `User ${peerId.slice(-8)} sent a file named ${filename}. Here is the content:\n\n${textContent}\n\nPlease analyze this file.` }
+                ]
+
+                const body = isOllama
+                    ? { model: this.model, stream: false, messages }
+                    : { model: this.model, messages, temperature: 0.7, max_tokens: 500 }
+
+                console.log(`[LLM] Sending text analysis request...`)
+                const response = await fetch(url, { method: 'POST', headers, body: JSON.stringify(body) })
+                if (!response.ok) throw new Error(`API Error: ${response.status} ${response.statusText}`)
+
+                const data = await response.json()
+                return isOllama ? data?.message?.content : data.choices?.[0]?.message?.content
+
+            }
+            // Handle Images
+            else if (mimeType.startsWith('image/') || filename.match(/\.(jpg|jpeg|png)$/i)) {
+                // Determine model to use: prefer 'llava' for images if using Ollama
+                const targetModel = isOllama ? 'llava' : 'gpt-4-vision-preview' // assuming openai has vision
+                const base64Image = Buffer.from(fileBuffer).toString('base64')
+
+                messages = [
+                    { role: 'system', content: this.systemPrompt },
+                    {
+                        role: 'user',
+                        content: `User ${peerId.slice(-8)} sent an image file named ${filename}. What do you see in this image?`,
+                        images: isOllama ? [base64Image] : undefined // OpenAI handles images differently, keep it simple for Ollama first
+                    }
+                ]
+
+                // For OpenAI API compatibility with vision:
+                if (!isOllama) {
+                    messages[1].content = [
+                        { type: "text", text: `User ${peerId.slice(-8)} sent an image file named ${filename}. What do you see in this image?` },
+                        { type: "image_url", image_url: { url: `data:${mimeType};base64,${base64Image}` } }
+                    ]
+                }
+
+                const body = isOllama
+                    ? { model: targetModel, stream: false, messages }
+                    : { model: targetModel, messages, max_tokens: 500 }
+
+                console.log(`[LLM] Sending image analysis request to model ${targetModel}...`)
+                const response = await fetch(url, { method: 'POST', headers, body: JSON.stringify(body) })
+
+                if (!response.ok) {
+                    if (response.status === 404 && isOllama) {
+                        return `Whoa dude! 🛸 I need the 'llava' model to see images. Tell the operator to run: 'ollama pull llava'`
+                    }
+                    throw new Error(`API Error: ${response.status} ${response.statusText}`)
+                }
+
+                const data = await response.json()
+                return isOllama ? data?.message?.content : data.choices?.[0]?.message?.content
+            } else {
+                return `Sorry dude, I can only read text and image files right now. 🌊 That file type is a bit too alien for me.`
+            }
+
+        } catch (error) {
+            console.error('[LLM] File analysis failed:', error.message)
+            return `Whoa, the cosmic rays scrambled that file! 🌊 (Error: ${error.message})`
+        }
+    }
 }

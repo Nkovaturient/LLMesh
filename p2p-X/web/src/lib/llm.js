@@ -1,5 +1,11 @@
 const isProduction = import.meta.env.PROD || window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1'
 
+/** When false, the browser never calls Ollama/OpenAI; only the terminal UCEP provider may use LLM APIs. */
+export function isBrowserDirectLLMEnabled() {
+  if (import.meta.env.VITE_ALLOW_BROWSER_LLM === 'true') return true
+  return !isProduction
+}
+
 // Use proxy endpoint in production to avoid CORS issues, direct URL in development
 const OLLAMA_BASE_URL = import.meta.env.VITE_LLM_BASE_URL || 'http://127.0.0.1:11434'
 const BASE_URL = isProduction
@@ -112,6 +118,10 @@ ${commands}`
 }
 
 export async function fetchLLMReply(userMessage, peerId = '') {
+  if (!isBrowserDirectLLMEnabled()) {
+    return null
+  }
+
   // Get dynamic extension context
   const extensionContext = getExtensionContext()
   const fullSystemPrompt = SYSTEM_PROMPT + extensionContext + `
@@ -142,9 +152,9 @@ Extension Commands:
     }
   } else {
     if (API_KEY === '') {
-      console.warn('[LLM] VITE_LLM_API_KEY is empty. Check your .env file or environment variables.')
+      console.warn('[LLM] VITE_OPENAI_API_KEY is empty. Check your .env file or environment variables.')
     } else {
-      console.warn('[LLM] No OpenAI API key provided for fallback. Set VITE_LLM_API_KEY.')
+      console.warn('[LLM] No OpenAI API key provided for fallback. Set VITE_OPENAI_API_KEY.')
     }
   }
 

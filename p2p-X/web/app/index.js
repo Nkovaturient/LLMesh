@@ -12,10 +12,9 @@ import { createEd25519PeerId } from '@libp2p/peer-id-factory'
 import { multiaddr } from '@multiformats/multiaddr'
 import { ChatRoom } from './chatroom.js'
 import { mdns } from '@libp2p/mdns'
-import { circuitRelayTransport } from '@libp2p/circuit-relay-v2'
+import { circuitRelayTransport, circuitRelayServer } from '@libp2p/circuit-relay-v2'
 import { ExtensionTestClient } from './UCEP-client.js'
 import { registerExtension, createEchoExtension } from './extension-provider.js'
-import { createLLMExtension } from './llm-extension-provider.js'
 import { LLMService } from './agent-llm.js'
 
 /**
@@ -73,6 +72,12 @@ async function createUniversalConnectivityNode() {
         clientMode: false,
         protocol: '/ipfs/kad/1.0.0',
         peerInfoMapper: (peer) => peer
+      }),
+      relay: circuitRelayServer({
+        reservations: {
+          maxReservations: 100,
+          reservationTtl: 1000 * 60 * 60, // 1 hour
+        }
       })
     },
     connectionManager: {
@@ -218,9 +223,6 @@ async function main() {
     console.log('[UCEP] Example extension registered: echo')
 
     // Register LLM extension (must be done AFTER node.start())
-    const llmService = new LLMService()
-    const llmExt = createLLMExtension(llmService)
-    await registerExtension(node, llmExt.id, llmExt.version, llmExt, llmExt.handler)
     console.log('[UCEP] LLM extension registered: alien-x-llm')
 
     // Initialize UCEP Extension Client
@@ -243,6 +245,49 @@ async function main() {
     // This is critical! Subscribe early so when peers connect, they already know your subscriptions
     console.log('\n[CHAT] Initializing chat room...')
     const chatRoom = await ChatRoom.join(node, null) // null = use default nickname
+
+    // Register File Transfer handler
+    node.handle('/llmesh/file/1.0.0', async (stream, connection) => {
+      try {
+        const peerId = connection?.remotePeer?.toString() ?? 'unknown'
+        console.log(`[FILE] Incoming file stream from ${peerId.slice(-8)}`)
+
+        const chunks = []
+        for await (const chunk of stream) {
+          chunks.push(chunk instanceof Uint8Array ? chunk : chunk.subarray())
+        }
+
+        const fullBuffer = Buffer.concat(chunks)
+        if (fullBuffer.length < 4) {
+          console.error('[FILE] Invalid file stream format: too short.')
+          return
+        }
+        const metaLen = fullBuffer.readUInt32BE(0)
+        if (fullBuffer.length < 4 + metaLen) {
+          console.error('[FILE] Invalid file stream format: missing metadata or file data.')
+          return
+        }
+        const metaJson = fullBuffer.subarray(4, 4 + metaLen).toString('utf8')
+        const metadata = JSON.parse(metaJson)
+
+        const fileBuffer = fullBuffer.subarray(4 + metaLen)
+
+        console.log(`[FILE] Received ${metadata.filename} (${fileBuffer.length} bytes)`)
+
+        // Pass to LLM
+        const reply = await llmService.analyzeFile(metadata.filename, metadata.mimeType, fileBuffer, peerId)
+
+        // Publish reply to mesh
+        await chatRoom.publishMessage(reply, true) // Act as Agent sending message
+        console.log(`[FILE] Analysis for ${metadata.filename} published to mesh.`)
+      } catch (err) {
+        console.error('[FILE] Error handling incoming file stream:', err)
+        try {
+          await chatRoom.publishMessage(`Total bummer! The file transfer got scrambled by cosmic radiation. 🌊 (Error: ${err.message})`, true)
+        } catch (e) { }
+      }
+    })
+
 
     // STEP 2: Connect to remote peers AFTER subscribing
     // Small delay to ensure checker is ready

@@ -1,19 +1,29 @@
 <script>
-    import { messages, myPeerId, connectionStatus, agentConnected } from "../stores.js";
-    import { sendChatMessage } from "../p2p.js";
+    import {
+        messages,
+        myPeerId,
+        connectionStatus,
+        agentConnected,
+        addMessage,
+    } from "../stores.js";
+    import {
+        sendChatMessage,
+        sendFile,
+        getDefaultAgentMultiaddr,
+    } from "../p2p.js";
     import { afterUpdate } from "svelte";
-    
+    import { multiaddr } from "@multiformats/multiaddr";
+
     // Subscribe to connected peers count
-    import { onMount } from 'svelte';
-    import { get } from 'svelte/store';
-    
+    import { onMount } from "svelte";
+    import { get } from "svelte/store";
+
     let newMessage = "";
     let chatContainer;
     let peerCount = 0;
 
     // Optional: poll or subscribe to peer count from p2p logic if needed,
     // but for now we just show status based on connectionStatus
-
 
     function handleSend() {
         if (!newMessage.trim()) return;
@@ -26,6 +36,61 @@
             e.preventDefault();
             handleSend();
         }
+    }
+
+    async function handleFileSelect(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+
+        try {
+            // Get the connected agent's peer ID from the global variable or store
+            // Since the terminal node is assumed to be one of the connected peers, grab the first one
+            // We can export a helper from p2p.js to get the agent's peer ID reliably
+            import("../p2p.js")
+                .then(async ({ getAgentPeerId, sendFile }) => {
+                    const peerIdStr = getAgentPeerId();
+
+                    if (!peerIdStr)
+                        throw new Error(
+                            "Agent Peer ID not found. Connect to the mesh first.",
+                        );
+
+                    addMessage({
+                        id: Date.now().toString(),
+                        sender: "You",
+                        text: `📎 [Sending file: ${file.name}...]`,
+                        isMe: true,
+                        timestamp: Date.now(),
+                    });
+
+                    const success = await sendFile(peerIdStr, file);
+                    if (!success) {
+                        addMessage({
+                            id: Date.now().toString() + "-err",
+                            sender: "System",
+                            text: `❌ [Failed to send file: ${file.name}]`,
+                            isMe: true,
+                            timestamp: Date.now(),
+                        });
+                    }
+                })
+                .catch((error) => {
+                    console.error("File send error:", error);
+                    alert(`File send error: ${error.message}`);
+                    addMessage({
+                        id: Date.now().toString() + "-err",
+                        sender: "System",
+                        text: `❌ [Error: ${error.message}]`,
+                        isMe: true,
+                        timestamp: Date.now(),
+                    });
+                });
+        } catch (error) {
+            console.error("File send error:", error);
+            alert(`File send error: ${error.message}`);
+        }
+
+        event.target.value = "";
     }
 
     // Auto-scroll to bottom
@@ -55,18 +120,26 @@
             <div
                 class="text-[10px] text-green-300/50 font-mono tracking-widest"
             >
-                {$agentConnected ? 'SECURE GOSSIPSUB MESH ACTIVE' : 'SEARCHING FOR PEERS...'}
+                {$agentConnected
+                    ? "SECURE GOSSIPSUB MESH ACTIVE"
+                    : "SEARCHING FOR PEERS..."}
             </div>
         </div>
         <div class="flex items-center gap-4">
-             <div class="text-[10px] font-mono {$connectionStatus === 'connected' ? 'text-green-400' : 'text-yellow-400'} animate-pulse">
-                {$connectionStatus === 'connected' ? '● MESH SYNCED' : '○ SYNCING'}
-             </div>
-             <div
+            <div
+                class="text-[10px] font-mono {$connectionStatus === 'connected'
+                    ? 'text-green-400'
+                    : 'text-yellow-400'} animate-pulse"
+            >
+                {$connectionStatus === "connected"
+                    ? "● MESH SYNCED"
+                    : "○ SYNCING"}
+            </div>
+            <div
                 class="text-xs font-mono text-green-400/80 border border-green-500/30 px-2 py-1 rounded"
-             >
+            >
                 ID: {$myPeerId ? $myPeerId.slice(-8) : "..."}
-             </div>
+            </div>
         </div>
     </div>
 
@@ -134,9 +207,35 @@
 
     <!-- Input Area -->
     <div class="p-4 bg-black/40 border-t border-green-500/20">
-        <div class="relative flex items-center group">
+        <div class="relative flex items-center group gap-2 w-full">
+            <input
+                type="file"
+                id="fileUpload"
+                class="hidden"
+                on:change={handleFileSelect}
+            />
+            <label
+                for="fileUpload"
+                title="Upload File to Alien X"
+                class="cursor-pointer p-4 bg-green-900/40 hover:bg-green-600/40 border border-green-500/50 rounded-full transition-all text-green-400 hover:scale-105 active:scale-95 flex items-center justify-center"
+            >
+                <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke-width="2"
+                    stroke="currentColor"
+                    class="w-6 h-6"
+                >
+                    <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        d="M18.375 12.739l-7.693 7.693a4.536 4.536 0 01-6.42-6.421l10.899-10.899m-7.828 9.09l-4.364-4.364a1.5 1.5 0 012.121-2.121l4.365 4.364m2.121-2.121L15.375 6.439a3 3 0 014.242 4.243l-4.364 4.364m-4.243-4.243l3.536 3.536"
+                    />
+                </svg>
+            </label>
             <div
-                class="absolute inset-0 bg-green-500/5 rounded-full blur transition-all group-focus-within:bg-green-500/10"
+                class="absolute inset-0 bg-green-500/5 rounded-full blur transition-all group-focus-within:bg-green-500/10 pointer-events-none"
             ></div>
             <input
                 type="text"

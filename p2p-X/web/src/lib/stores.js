@@ -6,6 +6,7 @@ export const outputLog = writable([]);
 export const connectionStatus = writable('disconnected'); // disconnected, connecting, connected
 export const myPeerId = writable('');
 export const agentConnected = writable(false);
+export const receivedFiles = writable([]);
 
 export function addLog(msg) {
     outputLog.update(l => [...l, `[${new Date().toLocaleTimeString()}] ${msg}`].slice(-50));
