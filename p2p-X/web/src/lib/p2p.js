@@ -9,7 +9,7 @@ import { identify } from '@libp2p/identify'
 import { ping } from '@libp2p/ping'
 import { multiaddr } from '@multiformats/multiaddr'
 import { get } from 'svelte/store'
-import { connectionStatus, myPeerId, addLog, addMessage, agentConnected } from './stores.js'
+import { connectionStatus, myPeerId, addLog, addMessage, agentConnected, receivedFiles } from './stores.js'
 import { ChatRoom } from './chatroom.js'
 import { fetchLLMReply, isLLMEnabled, isBrowserDirectLLMEnabled } from './llm.js'
 import { ExtensionTestClient, testExtension } from './ucep-client.js'
@@ -132,9 +132,7 @@ export async function initP2P(onProgress) {
       const blob = new Blob([fileBytes], { type: metadata.mimeType })
       const url = URL.createObjectURL(blob)
 
-      import('./stores.js').then(({ receivedFiles }) => {
-        receivedFiles.update(f => [...f, { ...metadata, sender: peerId, url, timestamp: Date.now() }])
-      })
+      receivedFiles.update(f => [...f, { ...metadata, sender: peerId, url, timestamp: Date.now() }])
 
       addLog(`[FILE] Received ${metadata.filename} from ${peerId.slice(-8)}`)
       pushInboundMessage(peerId.slice(-8), `Sent a file: ${metadata.filename}`)
@@ -470,6 +468,8 @@ export function getDefaultAgentMultiaddr() {
 }
 
 const FILE_SEND_CHUNK = 64 * 1024
+const FILE_STREAM_DRAIN_TIMEOUT_MS = 5 * 60 * 1000
+const FILE_STREAM_CLOSE_TIMEOUT_MS = 2 * 60 * 1000
 
 async function writeStreamWithSend(stream, buffers) {
   for (const buf of buffers) {
@@ -477,14 +477,14 @@ async function writeStreamWithSend(stream, buffers) {
     while (offset < buf.byteLength) {
       const end = Math.min(offset + FILE_SEND_CHUNK, buf.byteLength)
       const slice = buf.subarray(offset, end)
-      if (!stream.send(slice)) {
-        await stream.onDrain({ signal: AbortSignal.timeout(120000) })
-        continue
-      }
+      const canContinue = stream.send(slice)
       offset = end
+      if (!canContinue) {
+        await stream.onDrain({ signal: AbortSignal.timeout(FILE_STREAM_DRAIN_TIMEOUT_MS) })
+      }
     }
   }
-  await stream.close({ signal: AbortSignal.timeout(60000) })
+  await stream.close({ signal: AbortSignal.timeout(FILE_STREAM_CLOSE_TIMEOUT_MS) })
 }
 
 export async function sendFile(targetPeerId, file) {

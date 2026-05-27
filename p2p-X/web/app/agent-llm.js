@@ -165,3 +165,7 @@ The Universal Connectivity Extension Protocol enables peer-to-peer apps to disco
         }
     }
 }
+
+const llmService = new LLMService()
+
+export default llmService
