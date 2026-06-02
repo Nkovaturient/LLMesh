@@ -121,7 +121,7 @@ https://github.com/user-attachments/assets/bff792b4-ea03-4841-b8c6-64d1b0960a78
 ```bash
 cd libp2p-ai/p2p-X/web/app
 npm install
-node index.js
+npm start
 ```
 ***Copy the `/ws` multiaddr** from output:**
 `[SYSTEM]   /ip4/127.0.0.1/tcp/xxxxx/ws/p2p/Qm...`
@@ -174,6 +174,7 @@ Open `http://localhost:5173`
 ### Production (hosted UI)
 - Use a `/webrtc-direct` or WSS multiaddr from the terminal agent (HTTPS pages need secure transports).
 - **UCEP-only LLM (default):** The browser does **not** call Ollama or OpenAI when the app is built for production or served off a non-localhost host. Replies go **only** through the `alien-x-llm` UCEP extension on the terminal node (`LLMService` + `OPENAI_*` / Ollama there).
+- **Terminal requirement:** Keep `p2p-X/web/app` running on the operator machine with either Ollama reachable at `OPENAI_BASE_URL` or an OpenAI-compatible endpoint configured. The hosted Vercel app is UI-only; it discovers `/uc/extension/alien-x-llm/1.0.0` from the connected terminal agent.
 - **Escape hatch:** Set `VITE_ALLOW_BROWSER_LLM=true` to re-enable browser-side proxy/direct LLM (not recommended for real deployments—exposes or misroutes API usage).
 
 ## Key Components
@@ -201,6 +202,12 @@ Open `http://localhost:5173`
 window.listExtension()
 window.testExtension('alien-x-llm', 'chat', ['Hello!'])
 window.testExtension('alien-x-llm', 'ping')
+```
+
+Expected discovery from the browser after connecting to the terminal agent:
+
+```text
+/uc/extension/alien-x-llm/1.0.0
 ```
 
 ### Echo Extension (`echo`)
