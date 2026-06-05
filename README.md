@@ -172,9 +172,10 @@ Open `http://localhost:5173`
 - ✅ Use `/ws` multiaddr format
 
 ### Production (hosted UI)
+- Vercel or any hosted browser build is UI-only. It must connect to a terminal agent for intelligence.
 - Use a `/webrtc-direct` or WSS multiaddr from the terminal agent (HTTPS pages need secure transports).
 - **UCEP-only LLM (default):** The browser does **not** call Ollama or OpenAI when the app is built for production or served off a non-localhost host. Replies go **only** through the `alien-x-llm` UCEP extension on the terminal node (`LLMService` + `OPENAI_*` / Ollama there).
-- **Escape hatch:** Set `VITE_ALLOW_BROWSER_LLM=true` to re-enable browser-side proxy/direct LLM (not recommended for real deployments—exposes or misroutes API usage).
+- **Escape hatch:** Set `VITE_ALLOW_BROWSER_LLM=true` only for local/dev experiments to re-enable browser-side proxy/direct LLM (not recommended for real deployments because it exposes or misroutes API usage).
 
 ## Key Components
 
@@ -198,8 +199,8 @@ Open `http://localhost:5173`
 ### LLM Extension (`alien-x-llm`)
 ```javascript
 // In browser console
-window.listExtension()
-window.testExtension('alien-x-llm', 'chat', ['Hello!'])
+window.listExtensions()
+window.testExtension('alien-x-llm', 'chat', ['ping'])
 window.testExtension('alien-x-llm', 'ping')
 ```
 
