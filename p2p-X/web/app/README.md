@@ -60,6 +60,7 @@ node index.js
 ```
 [SYSTEM] Listening on 2 address(es):
   /ip4/127.0.0.1/tcp/57704/ws/p2p/12D3KooW...
+📦 Registering extension: alien-x-llm v1.0.0 at /uc/extension/alien-x-llm/1.0.0
 [UCEP] LLM extension registered: alien-x-llm
 ✅ READY TO CHAT!
 ```
@@ -162,7 +163,8 @@ Once connected, type messages in the terminal:
 window.listExtensions()
 
 // Test LLM extension
-window.testExtension('alien-x-llm', 'chat', ['Hello!'])
+window.testExtension('alien-x-llm', 'chat', ['ping'])
+window.testExtension('alien-x-llm', 'ping')
 ```
 
 ## Troubleshooting
