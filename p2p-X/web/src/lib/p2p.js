@@ -8,9 +8,10 @@ import { gossipsub } from '@libp2p/gossipsub'
 import { identify } from '@libp2p/identify'
 import { ping } from '@libp2p/ping'
 import { multiaddr } from '@multiformats/multiaddr'
-import { get } from 'svelte/store'
-import { connectionStatus, myPeerId, addLog, addMessage, agentConnected, receivedFiles } from './stores.js'
-import { ChatRoom } from './chatroom.js'
+import { fromString as uint8ArrayFromString } from 'uint8arrays/from-string'
+import { toString as uint8ArrayToString } from 'uint8arrays/to-string'
+import { connectionStatus, myPeerId, addLog, addMessage, agentConnected, receivedFiles, peers } from './stores.js'
+import { ChatRoom, CHAT_TOPIC } from './chatroom.js'
 import { fetchLLMReply, isLLMEnabled, isBrowserDirectLLMEnabled } from './llm.js'
 import { ExtensionTestClient, testExtension } from './ucep-client.js'
 import { registerExtension, createEchoExtension } from './extension-provider.js'
@@ -21,7 +22,70 @@ let extensionClient = null
 let gossipsubExtensionManager = null
 let llmExtensionPeerId = null
 let connectedAgentPeerId = null
+const discoveredPeerIds = new Set()
 const DEFAULT_AGENT = import.meta.env.VITE_AGENT_MULTIADDR || ''
+const FILE_TRANSFER_MESSAGE_TYPE = 'LLMESH_FILE_TRANSFER'
+
+function isAgentPeer(peerId) {
+  return peerId === llmExtensionPeerId || peerId === connectedAgentPeerId
+}
+
+function formatPeerEntry(peerId) {
+  const agent = isAgentPeer(peerId)
+  return {
+    id: peerId,
+    shortId: peerId.slice(-8),
+    label: agent ? 'LLM Agent' : 'Browser Peer',
+    isAgent: agent
+  }
+}
+
+function refreshPeerStore() {
+  if (!node) {
+    peers.set([])
+    return []
+  }
+
+  const connectedPeerIds = new Set()
+
+  if (chatRoom) {
+    for (const peerId of chatRoom.getConnectedPeers()) {
+      connectedPeerIds.add(peerId)
+    }
+  }
+
+  for (const peerId of discoveredPeerIds) {
+    connectedPeerIds.add(peerId)
+  }
+
+  for (const connection of node.getConnections?.() || []) {
+    connectedPeerIds.add(connection.remotePeer.toString())
+  }
+
+  connectedPeerIds.delete(node.peerId.toString())
+
+  const sortedPeers = Array.from(connectedPeerIds)
+    .sort((left, right) => {
+      const leftAgent = isAgentPeer(left)
+      const rightAgent = isAgentPeer(right)
+      if (leftAgent !== rightAgent) return leftAgent ? 1 : -1
+      return left.localeCompare(right)
+    })
+    .map(formatPeerEntry)
+
+  peers.set(sortedPeers)
+  return sortedPeers
+}
+
+function refreshPeerStoreSoon() {
+  setTimeout(refreshPeerStore, 0)
+}
+
+function rememberPeer(peerId) {
+  if (!node || !peerId || peerId === node.peerId.toString()) return
+  discoveredPeerIds.add(peerId)
+  refreshPeerStore()
+}
 
 function pushInboundMessage(sender, text) {
   addMessage({
@@ -35,17 +99,88 @@ function pushInboundMessage(sender, text) {
 
 function setupNodeEvents(currentNode) {
   currentNode.addEventListener('peer:connect', (evt) => {
-    addLog(`Connected to peer ${evt.detail.toString().slice(-8)}`)
+    const peerId = evt.detail.toString()
+    addLog(`Connected to peer ${peerId.slice(-8)}`)
+    rememberPeer(peerId)
+    refreshPeerStoreSoon()
   })
 
   currentNode.addEventListener('peer:disconnect', (evt) => {
-    addLog(`Disconnected from ${evt.detail.toString().slice(-8)}`)
+    const peerId = evt.detail.toString()
+    addLog(`Disconnected from ${peerId.slice(-8)}`)
+    discoveredPeerIds.delete(peerId)
+    refreshPeerStoreSoon()
   })
 
   currentNode.addEventListener('peer:identify', (evt) => {
     const peerId = evt.detail.peerId.toString()
     addLog(`Identify complete with ${peerId.slice(-8)}`)
+    rememberPeer(peerId)
+    refreshPeerStoreSoon()
   })
+}
+
+function receiveFilePayload(metadata, fileBytes, sender, transport = 'stream') {
+  const blob = new Blob([fileBytes], { type: metadata.mimeType })
+  const url = URL.createObjectURL(blob)
+
+  receivedFiles.update(f => [
+    ...f,
+    {
+      ...metadata,
+      size: metadata.size || fileBytes.byteLength,
+      sender,
+      url,
+      timestamp: Date.now(),
+      transport
+    }
+  ])
+
+  addLog(`[FILE] Received ${metadata.filename} from ${sender.slice(-8)} via ${transport}`)
+  pushInboundMessage(sender.slice(-8), `Sent a file: ${metadata.filename}`)
+}
+
+async function handleMeshFileTransfer(payload, senderId) {
+  try {
+    rememberPeer(senderId)
+    if (payload.targetPeerId !== node.peerId.toString()) return
+
+    const file = payload.file || {}
+    const fileBytes = uint8ArrayFromString(file.data || '', 'base64')
+    receiveFilePayload(
+      {
+        filename: file.filename || file.name || 'received-file',
+        mimeType: file.mimeType || 'application/octet-stream',
+        size: file.size || fileBytes.byteLength
+      },
+      fileBytes,
+      senderId,
+      'gossipsub'
+    )
+  } catch (err) {
+    console.error('[FILE] Error handling mesh file transfer:', err)
+    addLog(`[FILE] Mesh transfer failed: ${err.message}`)
+  }
+}
+
+async function sendFileViaMesh(targetPeerId, metadata, fileBuffer) {
+  const payload = {
+    type: FILE_TRANSFER_MESSAGE_TYPE,
+    version: '1.0.0',
+    targetPeerId,
+    file: {
+      ...metadata,
+      data: uint8ArrayToString(fileBuffer, 'base64')
+    }
+  }
+
+  await node.services.pubsub.publish(
+    CHAT_TOPIC,
+    new TextEncoder().encode(JSON.stringify(payload))
+  )
+
+  addLog(`Published ${metadata.filename} to ${targetPeerId.slice(-8)} over the GossipSub mesh`)
+  return true
 }
 
 export async function initP2P(onProgress) {
@@ -129,13 +264,7 @@ export async function initP2P(onProgress) {
       const metadata = JSON.parse(metaJson)
 
       const fileBytes = fullBuffer.subarray(4 + metaLen)
-      const blob = new Blob([fileBytes], { type: metadata.mimeType })
-      const url = URL.createObjectURL(blob)
-
-      receivedFiles.update(f => [...f, { ...metadata, sender: peerId, url, timestamp: Date.now() }])
-
-      addLog(`[FILE] Received ${metadata.filename} from ${peerId.slice(-8)}`)
-      pushInboundMessage(peerId.slice(-8), `Sent a file: ${metadata.filename}`)
+      receiveFilePayload(metadata, fileBytes, peerId)
     } catch (err) {
       console.error('[FILE] Error receiving file:', err)
       addLog(`[FILE] Error receiving file: ${err.message}`)
@@ -143,9 +272,13 @@ export async function initP2P(onProgress) {
   })
 
   chatRoom = await ChatRoom.join(node, null)
+  node.services.pubsub.addEventListener('subscription-change', refreshPeerStoreSoon)
+  chatRoom.onFile(handleMeshFileTransfer)
   chatRoom.onMessage((msg) => {
+    rememberPeer(msg.peerId)
     addLog(`Message from ${msg.nick}`)
     pushInboundMessage(msg.nick, msg.message)
+    refreshPeerStore()
   })
 
   // Initialize UCEP Extension Client (protocol-based discovery)
@@ -162,6 +295,7 @@ export async function initP2P(onProgress) {
       setLLMExtension(peerId.toString(), llmProtocol)
       llmExtensionPeerId = peerId.toString()
       addLog('LLM extension discovered from terminal node')
+      refreshPeerStore()
     }
   })
 
@@ -173,6 +307,7 @@ export async function initP2P(onProgress) {
       clearLLMExtension()
       llmExtensionPeerId = null
       addLog('LLM extension disconnected')
+      refreshPeerStore()
     }
   })
 
@@ -213,6 +348,7 @@ export async function initP2P(onProgress) {
   }
 
   connectionStatus.set('disconnected')
+  refreshPeerStore()
   onProgress?.('Subscribed to mesh topics')
   return node
 }
@@ -222,6 +358,7 @@ async function waitForMesh(timeoutMs = 8000) {
   const started = Date.now()
   while (Date.now() - started < timeoutMs) {
     const peers = chatRoom.getPeerCount()
+    refreshPeerStore()
     if (peers > 0) {
       addLog(`Mesh formed with ${peers} peer(s)`)
       return true
@@ -275,6 +412,10 @@ export function getAgentPeerId() {
   }
 
   return null
+}
+
+export function getConnectedFilePeers() {
+  return refreshPeerStore()
 }
 
 function convertMultiaddrForSecureContext(addrStr) {
@@ -396,6 +537,7 @@ export async function connectToAgent(agentMultiaddrStr = DEFAULT_AGENT) {
       addLog(`Mesh active with ${peers.size} peer(s)`)
       agentConnected.set(true)
       connectionStatus.set('connected')
+      refreshPeerStore()
 
       // Wait a moment for gossipsub to settle before introducing
       await new Promise(r => setTimeout(r, 1000))
@@ -411,11 +553,13 @@ export async function connectToAgent(agentMultiaddrStr = DEFAULT_AGENT) {
     } else {
       addLog('Warning: Connected but no mesh peers found yet.')
       connectionStatus.set('connected')
+      refreshPeerStore()
     }
 
   } catch (err) {
     connectionStatus.set('disconnected')
     agentConnected.set(false)
+    refreshPeerStore()
     addLog(`Connection failed: ${err.message}`)
     console.error(err)
 
@@ -514,11 +658,28 @@ export async function sendFile(targetPeerId, file) {
 
     addLog(`Sending file ${file.name} to ${targetPeerId.slice(-8)}...`)
 
-    // Create a valid multiaddr for dialing a specific peer ID over the existing mesh
-    const targetAddress = multiaddr(`/p2p/${targetPeerId}`)
-    const stream = await node.dialProtocol(targetAddress, '/llmesh/file/1.0.0')
+    const existingConnection = node
+      .getConnections()
+      .find(connection => connection.remotePeer.toString() === targetPeerId)
 
-    await writeStreamWithSend(stream, [headerBuffer, fileBuffer])
+    if (!existingConnection && !isAgentPeer(targetPeerId)) {
+      addLog(`No direct stream to ${targetPeerId.slice(-8)}; using targeted mesh transfer`)
+      return await sendFileViaMesh(targetPeerId, metadata, fileBuffer)
+    }
+
+    try {
+      const stream = existingConnection
+        ? await existingConnection.newStream('/llmesh/file/1.0.0')
+        : await node.dialProtocol(multiaddr(`/p2p/${targetPeerId}`), '/llmesh/file/1.0.0')
+
+      await writeStreamWithSend(stream, [headerBuffer, fileBuffer])
+    } catch (streamErr) {
+      if (!isAgentPeer(targetPeerId)) {
+        addLog(`[FILE] Direct stream failed (${streamErr.message}); using targeted mesh transfer`)
+        return await sendFileViaMesh(targetPeerId, metadata, fileBuffer)
+      }
+      throw streamErr
+    }
 
     addLog(`Successfully streamed ${file.name}`)
     return true
