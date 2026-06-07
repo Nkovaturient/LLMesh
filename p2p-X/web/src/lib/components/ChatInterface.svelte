@@ -4,26 +4,21 @@
         myPeerId,
         connectionStatus,
         agentConnected,
+        receivedFiles,
+        peers as connectedPeers,
         addMessage,
     } from "../stores.js";
     import {
         sendChatMessage,
         sendFile,
-        getDefaultAgentMultiaddr,
+        getAgentPeerId,
+        getConnectedFilePeers,
     } from "../p2p.js";
     import { afterUpdate } from "svelte";
-    import { multiaddr } from "@multiformats/multiaddr";
-
-    // Subscribe to connected peers count
-    import { onMount } from "svelte";
-    import { get } from "svelte/store";
 
     let newMessage = "";
     let chatContainer;
-    let peerCount = 0;
-
-    // Optional: poll or subscribe to peer count from p2p logic if needed,
-    // but for now we just show status based on connectionStatus
+    let selectedFilePeerId = "";
 
     function handleSend() {
         if (!newMessage.trim()) return;
@@ -38,59 +33,89 @@
         }
     }
 
+    function getPreferredFilePeer(peerList) {
+        return peerList.find((peer) => !peer.isAgent) || peerList[0] || null;
+    }
+
+    function formatPeerLabel(peer) {
+        if (!peer) return "Peer";
+        return `${peer.label || "Peer"} ${peer.shortId || peer.id.slice(-8)}`;
+    }
+
+    function getSelectedFilePeer() {
+        const refreshedPeers = getConnectedFilePeers();
+        const selectedPeer = refreshedPeers.find(
+            (peer) => peer.id === selectedFilePeerId,
+        );
+        if (selectedPeer) return selectedPeer;
+
+        const preferredPeer = getPreferredFilePeer(refreshedPeers);
+        if (preferredPeer) return preferredPeer;
+
+        const agentPeerId = getAgentPeerId();
+        return agentPeerId
+            ? {
+                  id: agentPeerId,
+                  shortId: agentPeerId.slice(-8),
+                  label: "Connected Peer",
+                  isAgent: true,
+              }
+            : null;
+    }
+
     async function handleFileSelect(event) {
         const file = event.target.files[0];
         if (!file) return;
 
         try {
-            // Get the connected agent's peer ID from the global variable or store
-            // Since the terminal node is assumed to be one of the connected peers, grab the first one
-            // We can export a helper from p2p.js to get the agent's peer ID reliably
-            import("../p2p.js")
-                .then(async ({ getAgentPeerId, sendFile }) => {
-                    const peerIdStr = getAgentPeerId();
+            const targetPeer = getSelectedFilePeer();
 
-                    if (!peerIdStr)
-                        throw new Error(
-                            "Agent Peer ID not found. Connect to the mesh first.",
-                        );
+            if (!targetPeer)
+                throw new Error(
+                    "No connected peer found. Connect another browser tab or the terminal agent first.",
+                );
 
-                    addMessage({
-                        id: Date.now().toString(),
-                        sender: "You",
-                        text: `📎 [Sending file: ${file.name}...]`,
-                        isMe: true,
-                        timestamp: Date.now(),
-                    });
+            addMessage({
+                id: Date.now().toString(),
+                sender: "You",
+                text: `[Sending file: ${file.name} to ${formatPeerLabel(targetPeer)}...]`,
+                isMe: true,
+                timestamp: Date.now(),
+            });
 
-                    const success = await sendFile(peerIdStr, file);
-                    if (!success) {
-                        addMessage({
-                            id: Date.now().toString() + "-err",
-                            sender: "System",
-                            text: `❌ [Failed to send file: ${file.name}]`,
-                            isMe: true,
-                            timestamp: Date.now(),
-                        });
-                    }
-                })
-                .catch((error) => {
-                    console.error("File send error:", error);
-                    alert(`File send error: ${error.message}`);
-                    addMessage({
-                        id: Date.now().toString() + "-err",
-                        sender: "System",
-                        text: `❌ [Error: ${error.message}]`,
-                        isMe: true,
-                        timestamp: Date.now(),
-                    });
+            const success = await sendFile(targetPeer.id, file);
+            if (!success) {
+                addMessage({
+                    id: Date.now().toString() + "-err",
+                    sender: "System",
+                    text: `[Failed to send file: ${file.name}]`,
+                    isMe: true,
+                    timestamp: Date.now(),
                 });
+            }
         } catch (error) {
             console.error("File send error:", error);
             alert(`File send error: ${error.message}`);
+            addMessage({
+                id: Date.now().toString() + "-err",
+                sender: "System",
+                text: `[Error: ${error.message}]`,
+                isMe: true,
+                timestamp: Date.now(),
+            });
         }
 
         event.target.value = "";
+    }
+
+    $: {
+        const selectedPeerIsConnected = $connectedPeers.some(
+            (peer) => peer.id === selectedFilePeerId,
+        );
+        if (!selectedPeerIsConnected) {
+            selectedFilePeerId =
+                getPreferredFilePeer($connectedPeers)?.id || "";
+        }
     }
 
     // Auto-scroll to bottom
@@ -102,6 +127,26 @@
 
     const ALIEN_AVATAR = "👽";
     const USER_AVATAR = "🧑‍🚀";
+
+    function formatFileSize(size = 0) {
+        if (!Number.isFinite(size) || size <= 0) return "0 B";
+        const units = ["B", "KB", "MB", "GB"];
+        const index = Math.min(
+            Math.floor(Math.log(size) / Math.log(1024)),
+            units.length - 1,
+        );
+        const value = size / 1024 ** index;
+        return `${value.toFixed(value >= 10 || index === 0 ? 0 : 1)} ${units[index]}`;
+    }
+
+    function formatReceivedTime(timestamp) {
+        return timestamp
+            ? new Date(timestamp).toLocaleTimeString([], {
+                  hour: "2-digit",
+                  minute: "2-digit",
+              })
+            : "now";
+    }
 </script>
 
 <div
@@ -148,7 +193,7 @@
         class="flex-1 overflow-y-auto p-4 space-y-6 scrollbar-thin scrollbar-thumb-green-500/30 scrollbar-track-transparent"
         bind:this={chatContainer}
     >
-        {#if $messages.length === 0}
+        {#if $messages.length === 0 && $receivedFiles.length === 0}
             <div
                 class="h-full flex flex-col items-center justify-center text-green-500/30 font-light italic opacity-50"
             >
@@ -203,10 +248,84 @@
                 </div>
             </div>
         {/each}
+
+        {#if $receivedFiles.length > 0}
+            <div class="space-y-3">
+                {#each $receivedFiles as file (`${file.sender}-${file.filename}-${file.timestamp}`)}
+                    <div
+                        class="max-w-[80%] rounded-xl rounded-bl-none px-5 py-3 bg-zinc-900/80 border border-white/10 text-gray-200 backdrop-blur-md shadow-lg animate-fade-in-up"
+                    >
+                        <div class="flex items-start justify-between gap-4">
+                            <div
+                                class="text-xs font-mono uppercase tracking-wider text-green-300/70"
+                            >
+                                P2P FILE TRANSFER
+                            </div>
+                            <div
+                                class="shrink-0 text-[10px] font-mono uppercase tracking-wider text-white/30"
+                            >
+                                {formatReceivedTime(file.timestamp)}
+                            </div>
+                        </div>
+                        <div
+                            class="mt-1 text-sm font-medium text-green-100 break-words"
+                        >
+                            {file.filename}
+                        </div>
+                        <div
+                            class="mt-2 grid gap-1 text-[11px] font-mono text-white/40 sm:grid-cols-4"
+                        >
+                            <div>
+                                FROM {file.sender ? file.sender.slice(-8) : "PEER"}
+                            </div>
+                            <div>VIA {(file.transport || "stream").toUpperCase()}</div>
+                            <div>{file.mimeType || "application/octet-stream"}</div>
+                            <div>{formatFileSize(file.size)}</div>
+                        </div>
+                        <a
+                            class="mt-3 inline-flex items-center justify-center rounded-full border border-green-500/40 bg-green-600/20 px-4 py-2 text-xs font-mono uppercase tracking-wider text-green-200 transition-all hover:bg-green-500/30"
+                            href={file.url}
+                            download={file.filename}
+                        >
+                            Download
+                        </a>
+                    </div>
+                {/each}
+            </div>
+        {/if}
     </div>
 
     <!-- Input Area -->
     <div class="p-4 bg-black/40 border-t border-green-500/20">
+        {#if $connectedPeers.length > 0}
+            <div
+                class="mb-3 flex flex-col gap-2 rounded border border-green-500/20 bg-green-500/5 px-3 py-2 sm:flex-row sm:items-center sm:justify-between"
+            >
+                <div class="min-w-0">
+                    <div
+                        class="text-[10px] font-mono uppercase tracking-widest text-green-300/70"
+                    >
+                        File Transfer Target
+                    </div>
+                    <div class="truncate text-[10px] font-mono text-white/35">
+                        {$connectedPeers.length} connected peer{$connectedPeers.length === 1
+                            ? ""
+                            : "s"} available
+                    </div>
+                </div>
+                <select
+                    bind:value={selectedFilePeerId}
+                    class="w-full rounded border border-green-500/30 bg-black/70 px-3 py-2 text-xs font-mono uppercase tracking-wider text-green-200 outline-none transition focus:border-green-400 sm:w-52"
+                    title="File transfer target"
+                >
+                    {#each $connectedPeers as peer (peer.id)}
+                        <option value={peer.id}>
+                            {formatPeerLabel(peer)}
+                        </option>
+                    {/each}
+                </select>
+            </div>
+        {/if}
         <div class="relative flex items-center group gap-2 w-full">
             <input
                 type="file"
@@ -216,7 +335,7 @@
             />
             <label
                 for="fileUpload"
-                title="Upload File to Alien X"
+                title="Upload file to selected peer"
                 class="cursor-pointer p-4 bg-green-900/40 hover:bg-green-600/40 border border-green-500/50 rounded-full transition-all text-green-400 hover:scale-105 active:scale-95 flex items-center justify-center"
             >
                 <svg

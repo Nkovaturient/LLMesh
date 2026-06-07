@@ -15,7 +15,7 @@ import { mdns } from '@libp2p/mdns'
 import { circuitRelayTransport, circuitRelayServer } from '@libp2p/circuit-relay-v2'
 import { ExtensionTestClient } from './UCEP-client.js'
 import { registerExtension, createEchoExtension } from './extension-provider.js'
-import { LLMService } from './agent-llm.js'
+import llmService from './agent-llm.js'
 
 /**
  * Create a fully configured libp2p node with all protocols
@@ -438,4 +438,3 @@ main().catch((error) => {
   console.error('[ERROR] Unhandled error:', error)
   process.exit(1)
 })
-

@@ -108,6 +108,7 @@ Browser Node
 - **Identify** - Peer capability exchange
 - **Ping** - Connection health
 - **Kademlia DHT** - Peer discovery
+- **LLMesh File Transfer** - Direct `/llmesh/file/1.0.0` streams between connected peers
 
 ### Transports
 - **TCP** - Reliable connections
@@ -147,6 +148,33 @@ Once connected, type messages in the terminal:
 [YourNickname]> Hello mesh!
 [PeerXyz]: Hey! This is awesome!
 ```
+
+## File Transfers
+
+LLMesh file streams use the `/llmesh/file/1.0.0` protocol when a direct stream connection is available. Browser peers discovered through the GossipSub chat mesh can also receive a targeted mesh transfer, so two browser tabs connected through the same agent can demonstrate peer-to-peer file receive without needing browser listen addresses. Incoming browser-side files are stored in the `receivedFiles` Svelte store and rendered as downloadable file cards with sender, transport, type, size, and received time.
+
+### Browser-to-Browser Demo
+
+1. Start the terminal agent and browser UI.
+2. Open two browser tabs and connect both tabs to the same terminal agent `/ws` multiaddr.
+3. In tab A, choose tab B from the **File Transfer Target** selector.
+4. Upload a text or image file from tab A.
+5. Confirm tab B shows a **P2P File Transfer** card from tab A with file info and a download link.
+
+### Supported Analysis Types
+
+| File type | Examples | LLM behavior |
+|-----------|----------|--------------|
+| Text | `.txt`, `.md`, `.csv`, `.json`, `.js`, `text/*` | Analyzed with `LLM_MODEL` (default: `llama3.2`) |
+| Image | `.png`, `.jpg`, `.jpeg`, `image/*` | Requires a vision-capable model |
+
+For local Ollama image analysis, pull `llava` before sending image files:
+
+```bash
+ollama pull llava
+```
+
+If `llava` is missing, text files still work, but image analysis returns a setup message asking the operator to install `llava`.
 
 ## Testing Extensions
 

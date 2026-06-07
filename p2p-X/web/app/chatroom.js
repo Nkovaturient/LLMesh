@@ -32,6 +32,7 @@ export class ChatRoom {
     this.node = node
     this.nickname = nickname || this._generateNickname()
     this.messageHandlers = []
+    this.fileHandlers = []
     this.running = false
   }
 
@@ -126,6 +127,11 @@ export class ChatRoom {
 
       // Try to decode as Universal Connectivity message format
       const decodedMsg = decodeMessage(messageEvent.data)
+
+      if (decodedMsg?.type === 'LLMESH_FILE_TRANSFER') {
+        this.fileHandlers.forEach(handler => handler(decodedMsg, senderId))
+        return
+      }
       
       if (decodedMsg && isChatMessage(decodedMsg)) {
         const messageText = getChatMessageText(decodedMsg)
@@ -135,6 +141,7 @@ export class ChatRoom {
         
         // Create ChatMessage object
         const chatMessage = new ChatMessage(senderNick, messageText)
+        chatMessage.peerId = senderId
         
         // Call registered handlers
         if (this.messageHandlers.length > 0) {
@@ -146,6 +153,7 @@ export class ChatRoom {
         const messageText = uint8ArrayToString(messageEvent.data)
         const senderNick = senderId.slice(-8)
         const chatMessage = new ChatMessage(senderNick, messageText)
+        chatMessage.peerId = senderId
         
         if (this.messageHandlers.length > 0) {
           this.messageHandlers.forEach(handler => handler(chatMessage))
@@ -234,6 +242,14 @@ export class ChatRoom {
    */
   onMessage(handler) {
     this.messageHandlers.push(handler)
+  }
+
+  /**
+   * Register a file transfer handler callback
+   * @param {Function} handler - Callback function to handle file payloads
+   */
+  onFile(handler) {
+    this.fileHandlers.push(handler)
   }
 
   /**
