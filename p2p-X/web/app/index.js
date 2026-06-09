@@ -214,7 +214,30 @@ async function main() {
       console.log(`[SYSTEM]   ${addr.toString()}`)
     })
 
+    // Hosted UI helper: optionally print a publicly dialable multiaddr
+    // without changing libp2p listen behavior.
+    //
+    // Usage (suggested):
+    //   AGENT_PUBLIC_MULTIADDR=/ip4/<public-host>/tcp/<port>/ws/p2p/<peerId> node index.js
+    //
+    // or use a host+port combination for common ws case:
+    //   AGENT_PUBLIC_WS_HOST=<public-host> AGENT_PUBLIC_WS_PORT=<port> node index.js
+    const agentPublicMultiaddr = (process.env.AGENT_PUBLIC_MULTIADDR || '').trim()
+    const publicWsHost = (process.env.AGENT_PUBLIC_WS_HOST || '').trim()
+    const publicWsPort = (process.env.AGENT_PUBLIC_WS_PORT || '').trim()
+
+    if (agentPublicMultiaddr) {
+      console.log('\n[PUBLIC] Copy-paste this dial address for hosted HTTPS UI:')
+      console.log(`[PUBLIC]   ${agentPublicMultiaddr}`)
+    } else if (publicWsHost && publicWsPort) {
+      // Build a wss-capable dial address only as a hint for the operator.
+      // We still rely on the dialable transport actually being exposed (tunnel/relay).
+      console.log('\n[PUBLIC] Constructed candidate dial address (ws->wss depends on tunnel exposure):')
+      console.log(`[PUBLIC]   /ip4/${publicWsHost}/tcp/${publicWsPort}/ws/p2p/${node.peerId.toString()}`)
+    }
+
     // Set up event handlers
+
     setupEventHandlers(node)
 
     // Register example extension (must be done AFTER node.start())

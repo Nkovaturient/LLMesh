@@ -128,11 +128,31 @@ node index.js
 
 > Note the ws:// address and port number, e.g., `/ip4/127.0.0.1/tcp/57704/ws/p2p/...`
 
-### *Tip 💡:*
-```
-local running: use `ws` supported multiaddr to connect /ip4/127.0.0.1/tcp/56989/ws/p2p..
-production url: use `webrtc-direct` addr /ip4/127.0.0.1/udp/56987/webrtc-direct/certhash/../p2p/..
-```
+## Production runbook (hosted HTTPS UI)
+
+The browser UI is served over **HTTPS**, so it must reach the terminal agent using a **secure transport** and the agent must advertise an address reachable from the public internet.
+
+### Supported production path (recommended): Tunnel agent to public WSS
+
+1) **Run the terminal agent behind a tunnel that provides WSS** (e.g. Cloudflare Tunnel or ngrok).
+
+2) **Expose the agent’s WebSocket listener publicly**
+- The terminal agent listens on `/ip4/0.0.0.0/tcp/0/ws`.
+- Through the tunnel, ensure the agent is reachable with **WSS** (not plain `ws://`).
+
+3) **Copy the dialable agent multiaddr from terminal startup logs**
+- Start the agent and copy the multiaddr that uses a reachable public IP/hostname and **WSS**.
+
+4) **In the deployed (Vercel) UI**, paste that multiaddr
+- Dial should succeed → `MESH SYNCED` should appear.
+- Then `alien-x-llm` discovery should work and chat should use the terminal node.
+
+> If you copy an address containing `127.0.0.1` / `localhost` (common when running the agent on a laptop), it will work locally but fail on hosted HTTPS because the public browser can’t reach your loopback interface.
+
+### Notes on `/webrtc-direct`
+- `/webrtc-direct` requires **NAT traversal**. In real deployments you’ll typically need **STUN/TURN** and the agent must advertise an IP that the browser can reach.
+- If you don’t have STUN/TURN configured, browsers often fail with `couldn't dial multiaddr` even though the agent is up.
+
 
 ### Step 2: Start Ollama (Optional)
 ```bash
