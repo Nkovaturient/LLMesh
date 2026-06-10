@@ -53,13 +53,14 @@ ollama serve
 
 ### 3. Run Terminal Agent
 ```bash
-node index.js
+npm start
 ```
 
 **Look for this output:**
 ```
 [SYSTEM] Listening on 2 address(es):
   /ip4/127.0.0.1/tcp/57704/ws/p2p/12D3KooW...
+[LLM] Initialized with Base URL: http://127.0.0.1:11434, Model: llama3.2
 [UCEP] LLM extension registered: alien-x-llm
 ✅ READY TO CHAT!
 ```
@@ -83,6 +84,17 @@ Terminal Node
       ├─> chat <message> → LLM Response
       └─> ping → Health Check
 ```
+
+The LLM extension is registered in `index.js` through
+`createLLMExtension(new LLMService())`, which advertises:
+
+```text
+/uc/extension/alien-x-llm/1.0.0
+```
+
+The browser should discover that protocol after Identify completes. In a hosted
+UI, the browser remains UI-only and sends chat requests through this UCEP
+extension rather than trying to reach Ollama or OpenAI from Vercel.
 
 ### Consumer Side (Browser)
 

@@ -48,9 +48,10 @@ export async function registerExtension(node, extensionId, version, manifest, co
       // Handle command request
       else if (request.command) {
         const cmd = request.command
+        const peerId = stream?.connection?.remotePeer?.toString?.() || 'unknown-peer'
         
         try {
-          const result = await commandHandler(cmd.command, cmd.args || [])
+          const result = await commandHandler(cmd.command, cmd.args || [], peerId)
           
           const response = {
             command: {
@@ -129,4 +130,3 @@ export function createEchoExtension() {
     }
   }
 }
-
