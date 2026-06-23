@@ -141,6 +141,7 @@ ollama serve
 ```
 
 ### Step 3: Launch Browser UI
+Open a **new terminal window** from the project root and run:
 ```bash
 cd libp2p-ai/p2p-X/web
 npm install
