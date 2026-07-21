@@ -150,7 +150,8 @@ export class ExtensionTestClient {
 
       console.log(`📤 Sending command: /${extensionId}-${command} ${args.join(' ')}`)
 
-      const signal = AbortSignal.timeout(5000)
+      const timeoutMs = extensionId === 'alien-x-llm' ? 60000 : 5000
+      const signal = AbortSignal.timeout(timeoutMs)
       await datastream.write(request, ext.Request, { signal })
 
       const response = await datastream.read(ext.Response, { signal })

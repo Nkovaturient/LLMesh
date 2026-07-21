@@ -198,7 +198,7 @@ window.testExtension('alien-x-llm', 'chat', ['Hello!'])
 | Issue | Solution |
 |-------|----------|
 | `404 Not Found` (LLM) | Check Ollama is running: `ollama serve` |
-| Extension not discovered | Wait for Identify protocol exchange (2-3s) |
+| Extension not discovered | Confirm terminal logs show `📦 Registering extension: alien-x-llm` (not only `[UCEP] LLM extension registered`); wait 2–3s for Identify |
 | Connection refused | Verify multiaddr format includes `/ws` |
 | No mesh formed | Check GossipSub subscription logs |
 

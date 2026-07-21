@@ -15,6 +15,7 @@ import { mdns } from '@libp2p/mdns'
 import { circuitRelayTransport, circuitRelayServer } from '@libp2p/circuit-relay-v2'
 import { ExtensionTestClient } from './UCEP-client.js'
 import { registerExtension, createEchoExtension } from './extension-provider.js'
+import { createAlienXLLMExtension } from './llm-extension-provider.js'
 import llmService from './agent-llm.js'
 
 /**
@@ -223,6 +224,8 @@ async function main() {
     console.log('[UCEP] Example extension registered: echo')
 
     // Register LLM extension (must be done AFTER node.start())
+    const llmExt = createAlienXLLMExtension(llmService)
+    await registerExtension(node, llmExt.id, llmExt.version, llmExt, llmExt.handler)
     console.log('[UCEP] LLM extension registered: alien-x-llm')
 
     // Initialize UCEP Extension Client

@@ -173,7 +173,9 @@ Open `http://localhost:5173`
 
 ### Production (hosted UI)
 - Use a `/webrtc-direct` or WSS multiaddr from the terminal agent (HTTPS pages need secure transports).
+- **Vercel = UI only:** The hosted deployment is a static browser UI. LLM runs on the operator's terminal agent, not on Vercel.
 - **UCEP-only LLM (default):** The browser does **not** call Ollama or OpenAI when the app is built for production or served off a non-localhost host. Replies go **only** through the `alien-x-llm` UCEP extension on the terminal node (`LLMService` + `OPENAI_*` / Ollama there).
+- **`/api/ollama-proxy` is not the production path:** The Vercel proxy cannot reach operator `127.0.0.1:11434`; production intelligence requires a terminal agent with `OPENAI_API_KEY` or reachable Ollama, plus browser connect via production transport.
 - **Escape hatch:** Set `VITE_ALLOW_BROWSER_LLM=true` to re-enable browser-side proxy/direct LLM (not recommended for real deployments—exposes or misroutes API usage).
 
 ## Key Components

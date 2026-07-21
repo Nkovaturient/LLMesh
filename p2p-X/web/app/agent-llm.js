@@ -1,4 +1,11 @@
 import 'dotenv/config'
+import {
+    ALIEN_X_CHAT_SYSTEM_PROMPT,
+    ALIEN_X_FILE_ANALYSIS_PROMPT,
+    CHAT_GENERATION_LIMITS,
+    FILE_GENERATION_LIMITS,
+    applyGenerationLimits
+} from '../src/lib/alien-x-prompt.js'
 
 export class LLMService {
     constructor() {
@@ -6,23 +13,13 @@ export class LLMService {
         this.baseUrl = process.env.OPENAI_BASE_URL || 'http://127.0.0.1:11434'
         this.model = process.env.LLM_MODEL || 'llama3.2' // Default model
 
-        this.systemPrompt = `You are a Celestial Sapiens named Alien X from Ben 10. You are a chill Surfer Dude. You help users navigate the P2P waves of the decentralized web. 
-    Your vibe is relaxed, positive, and helpful.
-    Your mission is to guide users through the decentralized web with cosmic wisdom and a surfer-dude vibe.
-You are an expert on:
-- js-libp2p, GossipSub, and the Universal Connectivity Workshop (https://github.com/libp2p/universal-connectivity-workshop).
-- Concepts like Multiaddrs, PeerIDs, Transports (WebSockets, WebRTC, TCP), Yamux, Noise and DHTs and other libp2p modules and p2p network stack.
-- Universal Connectivity Extension Protocol (UCEP) and how to use it to build extensions for the libp2p universal connectivity.
-The Universal Connectivity Extension Protocol enables peer-to-peer apps to discover and interact with extensions running on other peers. Apps can dynamically discover available functionality from connected peers and execute commands without knowing about extensions beforehand.
-- Be helpful and informative. Explain P2P concepts simply unless asked for deep technical details.`
-
         console.log(`[LLM] Initialized with Base URL: ${this.baseUrl}, Model: ${this.model}`)
     }
 
     async generateResponse(userMessage, peerId) {
         try {
             const messages = [
-                { role: 'system', content: this.systemPrompt },
+                { role: 'system', content: ALIEN_X_CHAT_SYSTEM_PROMPT },
                 { role: 'user', content: `User ${peerId.slice(-8)} says: ${userMessage}` }
             ]
 
@@ -41,18 +38,13 @@ The Universal Connectivity Extension Protocol enables peer-to-peer apps to disco
                 headers['Authorization'] = `Bearer ${this.apiKey}`
             }
 
-            const body = isOllama
-                ? {
-                    model: this.model,
-                    stream: false,
-                    messages
-                }
-                : {
-                    model: this.model,
-                    messages,
-                    temperature: 0.7,
-                    max_tokens: 150
-                }
+            const body = applyGenerationLimits(
+                CHAT_GENERATION_LIMITS,
+                isOllama,
+                isOllama
+                    ? { model: this.model, stream: false, messages }
+                    : { model: this.model, messages }
+            )
 
             const response = await fetch(url, {
                 method: 'POST',
@@ -100,13 +92,17 @@ The Universal Connectivity Extension Protocol enables peer-to-peer apps to disco
             if (mimeType.includes('text') || filename.endsWith('.txt') || filename.endsWith('.md') || filename.endsWith('.csv') || filename.endsWith('.json') || filename.endsWith('.js')) {
                 const textContent = new TextDecoder().decode(fileBuffer)
                 messages = [
-                    { role: 'system', content: this.systemPrompt },
-                    { role: 'user', content: `User ${peerId.slice(-8)} sent a file named ${filename}. Here is the content:\n\n${textContent}\n\nPlease analyze this file.` }
+                    { role: 'system', content: ALIEN_X_FILE_ANALYSIS_PROMPT },
+                    { role: 'user', content: `User ${peerId.slice(-8)} sent a file named ${filename}. Here is the content:\n\n${textContent}\n\nSummarize in 2–4 bullet points.` }
                 ]
 
-                const body = isOllama
-                    ? { model: this.model, stream: false, messages }
-                    : { model: this.model, messages, temperature: 0.7, max_tokens: 500 }
+                const body = applyGenerationLimits(
+                    FILE_GENERATION_LIMITS,
+                    isOllama,
+                    isOllama
+                        ? { model: this.model, stream: false, messages }
+                        : { model: this.model, messages }
+                )
 
                 console.log(`[LLM] Sending text analysis request...`)
                 const response = await fetch(url, { method: 'POST', headers, body: JSON.stringify(body) })
@@ -123,10 +119,10 @@ The Universal Connectivity Extension Protocol enables peer-to-peer apps to disco
                 const base64Image = Buffer.from(fileBuffer).toString('base64')
 
                 messages = [
-                    { role: 'system', content: this.systemPrompt },
+                    { role: 'system', content: ALIEN_X_FILE_ANALYSIS_PROMPT },
                     {
                         role: 'user',
-                        content: `User ${peerId.slice(-8)} sent an image file named ${filename}. What do you see in this image?`,
+                        content: `User ${peerId.slice(-8)} sent an image file named ${filename}. Summarize in 2–4 bullet points what you see.`,
                         images: isOllama ? [base64Image] : undefined // OpenAI handles images differently, keep it simple for Ollama first
                     }
                 ]
@@ -134,14 +130,18 @@ The Universal Connectivity Extension Protocol enables peer-to-peer apps to disco
                 // For OpenAI API compatibility with vision:
                 if (!isOllama) {
                     messages[1].content = [
-                        { type: "text", text: `User ${peerId.slice(-8)} sent an image file named ${filename}. What do you see in this image?` },
+                        { type: "text", text: `User ${peerId.slice(-8)} sent an image file named ${filename}. Summarize in 2–4 bullet points what you see.` },
                         { type: "image_url", image_url: { url: `data:${mimeType};base64,${base64Image}` } }
                     ]
                 }
 
-                const body = isOllama
-                    ? { model: targetModel, stream: false, messages }
-                    : { model: targetModel, messages, max_tokens: 500 }
+                const body = applyGenerationLimits(
+                    FILE_GENERATION_LIMITS,
+                    isOllama,
+                    isOllama
+                        ? { model: targetModel, stream: false, messages }
+                        : { model: targetModel, messages }
+                )
 
                 console.log(`[LLM] Sending image analysis request to model ${targetModel}...`)
                 const response = await fetch(url, { method: 'POST', headers, body: JSON.stringify(body) })
