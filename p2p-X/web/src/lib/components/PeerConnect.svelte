@@ -48,11 +48,19 @@
                     Target Agent Coordinates (Multiaddr)</label>
                 <textarea
                     bind:value={agentAddress}
-                    placeholder="/ip4/127.0.0.1/tcp/50847/ws/p2p/..."
+                    placeholder="Local (HTTP): /ip4/<laptop-ip>/tcp/<port>/ws/p2p/... OR /ip4/127.0.0.1/tcp/<port>/ws/p2p/...\n\nProduction (HTTPS): use a publicly reachable WSS or a reachable webrtc-direct addr (avoid 127.0.0.1/localhost in public UI)"
                     class="w-full bg-black/40 border border-green-500/20 rounded p-4 text-green-300 text-xs font-mono h-32 focus:outline-none focus:border-green-500 focus:shadow-[0_0_15px_rgba(74,222,128,0.1)] resize-none transition-all"
                 ></textarea>
             </form>
+
+            {#if agentAddress}
+                <div class="mt-2 text-[10px] text-green-400/50 font-mono break-all">
+                    Using VITE_AGENT_MULTIADDR prefill or your pasted value.
+                    If this UI is hosted on HTTPS, the multiaddr must use secure transport (WSS / public webrtc-direct with STUN/TURN).
+                </div>
+            {/if}
         </div>
+
 
         <div class="text-[11px] text-green-400/80 font-mono tracking-widest">
             YOUR NODE: {$myPeerId ? $myPeerId.slice(-12) : "..."}

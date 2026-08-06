@@ -369,8 +369,9 @@ async function waitForMesh(timeoutMs = 8000) {
   return false
 }
 
-const UCEP_ONLY_HINT =
-  'No LLM extension reachable. Connect a terminal peer with alien-x-llm (Ollama/API runs there, not in the browser).'
+  const UCEP_ONLY_HINT =
+  'No LLM extension reachable. If the dial succeeded but alien-x-llm is missing, the agent may be unreachable from public HTTPS, or the terminal node has not registered the extension. Use a public WSS/tunnel (or webrtc-direct with STUN/TURN) and re-copy the agent multiaddr from startup logs.'
+
 
 async function resolveAlienXReply(text, peerId) {
   if (!node) return null
@@ -416,6 +417,49 @@ export function getAgentPeerId() {
 
 export function getConnectedFilePeers() {
   return refreshPeerStore()
+}
+
+function looksLikeLocalhostMultiaddr(addrStr) {
+  const s = (addrStr || '').toLowerCase()
+  return s.includes('127.0.0.1') || s.includes('/localhost/') || s.includes('localhost')
+}
+
+function guessDialFailureCauses({ originalAddr, method, err }) {
+  const message = (err?.message || String(err || '')).toLowerCase()
+  const causes = []
+
+  // HTTPS + ws/js: mixed content / blocked by browser
+  if (message.includes('insecure websocket') || message.includes('mixed content') || message.includes('ws://')) {
+    causes.push('Browser blocks insecure WebSocket from an HTTPS page (need WSS or run on HTTP/localhost).')
+  }
+
+  // Localhost advertised from agent
+  if (looksLikeLocalhostMultiaddr(originalAddr)) {
+    causes.push('Agent multiaddr contains localhost/127.0.0.1, which the public browser cannot reach. Use a publicly routable/tunneled address. (LAN/WebRTC addr pasted into public UI won’t work).')
+  }
+
+  // WebRTC / NAT traversal
+  if (originalAddr.includes('webrtc')) {
+
+    if (message.includes('couldn\'t dial') || message.includes('dial') || message.includes('timeout')) {
+      causes.push('WebRTC dial failed. Common causes: NAT/firewall/UDP blocked, missing STUN/TURN, or agent advertising an unreachable IP.')
+    }
+    if (originalAddr.includes('webrtc-direct')) {
+      causes.push('webrtc-direct still requires NAT traversal. For production, ensure STUN/TURN and public reachability.')
+    }
+  }
+
+  // Generic
+  if (causes.length === 0) {
+    causes.push('Multiaddr may be malformed, agent not listening on that transport, or network path is blocked.')
+  }
+
+  // Transport-specific hint
+  if (method === 'wss-converted' && originalAddr.includes('ws')) {
+    causes.push('Tried converting ws→wss automatically, but the agent may not expose WSS publicly.')
+  }
+
+  return causes
 }
 
 function convertMultiaddrForSecureContext(addrStr) {
@@ -472,6 +516,7 @@ function convertMultiaddrForSecureContext(addrStr) {
   }
 }
 
+
 export async function connectToAgent(agentMultiaddrStr = DEFAULT_AGENT) {
   await initP2P()
 
@@ -495,12 +540,11 @@ export async function connectToAgent(agentMultiaddrStr = DEFAULT_AGENT) {
     let ma = multiaddr(convertedAddr)
 
     // Try dialing with the converted address
-    let lastError = null
     try {
       const connection = await node.dial(ma)
       connectedAgentPeerId = connection.remotePeer.toString()
     } catch (dialError) {
-      lastError = dialError
+      const causes = guessDialFailureCauses({ originalAddr: target, method, err: dialError })
 
       // If WSS conversion failed and we're on HTTPS, provide helpful error
       if (window.location.protocol === 'https:' && (method === 'wss-converted' || method === 'circuit-relay-wss-converted')) {
@@ -511,21 +555,18 @@ export async function connectToAgent(agentMultiaddrStr = DEFAULT_AGENT) {
         addLog(`3. Connect through circuit relay: /ip4/relay-ip/tcp/port/wss/p2p/relay-id/p2p-circuit/p2p/target-id`)
         addLog(`4. Run the app on HTTP (localhost) for development`)
 
-        // Try original address as last resort (will fail but gives clearer error)
-        try {
-          addLog(`Attempting original address (will likely fail on HTTPS)...`)
-          ma = multiaddr(target)
-          await node.dial(ma)
-        } catch (originalError) {
-          throw new Error(
-            `Cannot connect to insecure WebSocket (ws://) from HTTPS page. ` +
-            `Please use WSS, circuit relay with WSS, or a tunnel service. Original error: ${dialError.message}`
-          )
-        }
-      } else {
-        throw dialError
+        const allCauses = causes.join('\n- ')
+        throw new Error(
+          `Cannot dial agent from HTTPS.\n- Tried: ${convertedAddr}\n- Original: ${target}\n- Dial error: ${dialError?.message || dialError}\n- Most likely causes:\n- ${allCauses}`
+        )
       }
+
+      const allCauses = causes.join('\n- ')
+      throw new Error(
+        `Cannot dial agent multiaddr.\n- Tried: ${convertedAddr}\n- Original: ${target}\n- Dial error: ${dialError?.message || dialError}\n- Most likely causes:\n- ${allCauses}`
+      )
     }
+
 
     await waitForMesh()
     const peers = chatRoom.getConnectedPeers()
@@ -549,7 +590,9 @@ export async function connectToAgent(agentMultiaddrStr = DEFAULT_AGENT) {
       }
 
       // Trigger the LLM greeting now that we are effectively 'connected'
+      // If dial worked but alien-x-llm wasn't discovered, users will get the UCEP-only hint.
       emitAgentGreeting()
+
     } else {
       addLog('Warning: Connected but no mesh peers found yet.')
       connectionStatus.set('connected')
